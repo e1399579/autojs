@@ -28,7 +28,9 @@
 
 var password = [1, 2, 3, 4]; // 锁屏密码
 var takeImg = files.cwd() + "/take.png"; // 收取好友能量用到的图片
+
 const MAX_RETRY_TIMES = 10; // 最大失败重试次数
+const TIMEOUT = 6000; // 超时时间：毫秒
 const ALIPAY = "com.eg.android.AlipayGphone"; // 支付宝包名
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
@@ -44,6 +46,12 @@ start(takeImg, password);
  */
 function start(takeImg, password) {
     var isScreenOn = device.isScreenOn(); // 屏幕是否点亮
+    if (!isScreenOn) {
+        log("唤醒");
+        device.wakeUp();
+        sleep(200);
+    }
+
     var km = context.getSystemService(context.KEYGUARD_SERVICE);
     var isLocked = km.inKeyguardRestrictedInputMode(); // 是否已经上锁
     var isSecure = km.isKeyguardSecure(); // 是否设置了密码
@@ -58,42 +66,11 @@ function start(takeImg, password) {
         isRunning: isRunning
     });
 
-    if (!isScreenOn) {
-        log("唤醒");
-        device.wakeUp();
-        sleep(200);
-    }
-
     var robot = new Robot();
-
-    // 向上滑动即可解锁
-    var secure = new Secure();
-    if (hasLayer) {
-        log("向上滑动");
-        secure.openLayer(robot);
-    }
-
-    if (isLocked) {
-        log("解锁");
-        var unlocked = false;
-        for (var i = 0; i < MAX_RETRY_TIMES; i++) {
-            unlocked = secure.unlock(password);
-            if (unlocked) {
-                break;
-            } else {
-                toastLog("解锁失败，重试");
-                sleep(500);
-                log("向上滑动");
-                secure.openLayer(robot);
-            }
-        }
-        if (!unlocked) {
-            toastLog("解锁失败，不再重试");
-            KeyCode("KEYCODE_POWER");
-            exit();
-        }
-    }
-
+    var antForest = new AntForest(robot);
+    threads.start(function () {
+        antForest.openApp(); // 先打开APP，节省等待时间
+    });
     // 子线程监听Home键
     threads.start(function () {
         events.observeKey();
@@ -103,7 +80,18 @@ function start(takeImg, password) {
         });
     });
 
-    var antForest = new AntForest(robot);
+    // 向上滑动即可解锁
+    var secure = new Secure();
+    if (hasLayer) {
+        log("向上滑动");
+        secure.openLayer(robot);
+    }
+
+    if (isLocked) {
+        secure.openLock(password);
+    }
+
+
     antForest.launch();
     antForest.work();
 
@@ -123,6 +111,24 @@ function start(takeImg, password) {
  * @constructor
  */
 function Secure() {
+    this.openLock = function (password) {
+        log("解锁");
+        for (var i = 0; i < MAX_RETRY_TIMES; i++) {
+            if (this.unlock(password)) {
+                return true;
+            } else {
+                toastLog("解锁失败，重试");
+                sleep(500);
+                log("向上滑动");
+                this.openLayer(robot);
+            }
+        }
+
+        toastLog("解锁失败，不再重试");
+        KeyCode("KEYCODE_POWER");
+        exit();
+    };
+
     this.openLayer = function (robot) {
         var x = WIDTH / 2;
         var y = HEIGHT - 100;
@@ -212,23 +218,37 @@ function AntForest(robot) {
     this.robot = robot;
     this.times = 0;
 
-    this.launch = function () {
+    this.openApp = function () {
         toastLog("即将收取蚂蚁森林能量，请勿操作！");
 
         launch(ALIPAY);
         //waitForPackage(ALIPAY, 500);
-        var launched = false;
-        for (var i = 0; i < MAX_RETRY_TIMES; i++) {
-            if (id("com.alipay.android.phone.openplatform:id/saoyisao_tv").exists()) {
-                launched = true;
+    };
+
+    this.launch = function () {
+        var times = 0;
+        var launched;
+        do {
+            launched = this.doLaunch();
+            if (launched) {
                 break;
             } else {
-                sleep(200);
+                times++;
+                this.robot.kill(ALIPAY);
+                this.openApp();
             }
-        }
+        } while (times < MAX_RETRY_TIMES);
+
         if (!launched) {
+            toastLog("运行失败");
+            exit();
+        }
+    };
+
+    this.doLaunch = function () {
+        if (!id("com.alipay.android.phone.openplatform:id/saoyisao_tv").findOne(TIMEOUT)) {
             toastLog("进入支付宝首页失败");
-            return this.relaunch();
+            return false;
         }
 
         var success = false;
@@ -245,13 +265,18 @@ function AntForest(robot) {
             }
         }
         if (!success) {
-            toastLog("进入蚂蚁森林失败");
-            return this.relaunch();
+            toastLog("点击蚂蚁森林失败");
+            return false;
         }
 
         // 等待加载
-        className("android.widget.Button").desc("攻略").waitFor();
-        toastLog("进入蚂蚁森林成功");
+        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(TIMEOUT)) {
+            sleep(500); // 等待界面渲染
+            toastLog("进入蚂蚁森林成功");
+        } else {
+            toastLog("进入蚂蚁森林失败");
+            return false;
+        }
 
         // 对话出现
         var dialog_x = WIDTH / 2;
@@ -262,17 +287,6 @@ function AntForest(robot) {
         this.robot.click(dialog_x, dialog_y);
 
         return true;
-    };
-
-    this.relaunch = function () {
-        if (this.times < MAX_RETRY_TIMES) {
-            this.times++;
-            this.robot.kill(ALIPAY);
-            return this.launch();
-        } else {
-            toastLog("运行失败");
-            exit();
-        }
     };
 
     this.work = function () {
@@ -290,14 +304,21 @@ function AntForest(robot) {
         }
         // 截图权限申请
         threads.start(function () {
-            classNameContains("Button").textContains("立即开始").click();
+            var remember;
+            var beginBtn;
+            if (remember = id("com.android.systemui:id/remember").checkable(true).findOne(TIMEOUT)) {
+                remember.click();
+            }
+            if (beginBtn = classNameContains("Button").textContains("立即开始").findOne(TIMEOUT)) {
+                beginBtn.click();
+            }
         });
         if (!requestScreenCapture()) {
             toastLog("请求截图失败");
             exit();
         }
 
-        this.takeOthers(icon, desc("爱心捐赠").className("android.widget.Image"));
+        this.takeOthers(icon, className("android.webkit.WebView").scrollable(true));
 
         var more = desc("查看更多好友").className("android.view.View").find();
         if (more.length) {
@@ -305,9 +326,13 @@ function AntForest(robot) {
             this.robot.clickCenter(more[0]);
 
             // 等待更多列表刷新
-            sleep(5000);
-            this.takeOthers(icon, desc("没有更多了").className("android.view.View"));
-            this.robot.back();
+            if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
+                sleep(1000); // 等待界面渲染
+                this.takeOthers(icon, desc("没有更多了").className("android.view.View"));
+                this.robot.back();
+            } else {
+                toastLog("进入好友排行榜失败");
+            }
         }
 
         toastLog("收取能量完毕");
@@ -414,15 +439,20 @@ function AntForest(robot) {
                 break;
             }
             this.robot.click(WIDTH / 2, point.y + row_height / 2); // 点击一行中间
-            // 等待好友的森林
-            sleep(3000);
+
+            // 等待好友的森林（标题不为空）
+            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT)) {
+                sleep(500); // 等待界面渲染
+                toastLog("进入好友森林成功");
+            }
 
             // 收取、返回
             this.take("浇水");
             this.robot.back();
 
             // 等待好友列表刷新
-            sleep(3000);
+            id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT);
+            sleep(500); // 等待界面渲染
         }
     }
 }
