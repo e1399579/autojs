@@ -25,13 +25,13 @@
  * 1.魔趣7.1系统正常，偶尔出现崩溃情况，依赖于Auto.js.apk稳定性
  * @author ridersam <e1399579@gmail.com>
  */
+var config = require("config.js") || {};
+var password = config.password || [1, 2, 3, 4]; // 锁屏密码
+var takeImg = config.takeImg || files.cwd() + "/take.png"; // 收取好友能量用到的图片
 
-var password = [1, 2, 3, 4]; // 锁屏密码
-var takeImg = files.cwd() + "/take.png"; // 收取好友能量用到的图片
-
-const PATTERN_SIZE = 3; // 图案解锁每行点数
-const MAX_RETRY_TIMES = 10; // 最大失败重试次数
-const TIMEOUT = 6000; // 超时时间：毫秒
+const PATTERN_SIZE = config.pattern_size || 3; // 图案解锁每行点数
+const MAX_RETRY_TIMES = config.max_retry_times || 10; // 最大失败重试次数
+const TIMEOUT = config.timeout || 6000; // 超时时间：毫秒
 const ALIPAY = "com.eg.android.AlipayGphone"; // 支付宝包名
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
@@ -140,7 +140,7 @@ function Secure(robot) {
     this.openLayer = function () {
         var x = WIDTH / 2;
         var y = HEIGHT - 100;
-        this.robot.swipe(x, y, x, 100, 500);
+        this.robot.swipe(x, y, x, 100, 750);
         sleep(500); // 等待动画
     };
 
@@ -378,11 +378,9 @@ function AntForest(robot) {
         // 等待能量球渲染
         sleep(1500);
 
-        // 右上角控件字体最大，故按字体大小（面积）倒序排
+        // 按在父元素中的位置顺序排，总能量为第一个
         filters.sort(function (o1, o2) {
-            var rect1 = o1.bounds();
-            var rect2 = o2.bounds();
-            return rect2.width() * rect2.height() - rect1.width() * rect1.height();
+            return o1.indexInParent() - o2.indexInParent();
         });
 
         // 找到第一个并删除（右上角控件）
@@ -407,10 +405,15 @@ function AntForest(robot) {
         var times = 0;
         var prevTop = 0;
         var top = 0;
+        var row_height = 192 * (HEIGHT / 1920);
+        var x1 = WIDTH / 2;
+        var y1 = HEIGHT - row_height;
+        var x2 = WIDTH / 2;
+        var y2 = row_height;
         while (times < MAX_RETRY_TIMES) {
             this.takeFromImage(icon);
 
-            this.robot.swipe(WIDTH / 2, HEIGHT - 100, WIDTH / 2, 100, 500);
+            this.robot.swipe(x1, y1, x2, y2);
             sleep(1500); // 等待滑动动画
 
             this.takeFromImage(icon);
@@ -435,7 +438,7 @@ function AntForest(robot) {
      */
     this.takeFromImage = function (icon) {
         var point, capture;
-        var row_height = 192 * (WIDTH / 1080); // 在1080*1920的屏幕上，一行占192，即一屏10行
+        var row_height = 192 * (HEIGHT / 1920); // 在1080*1920的屏幕上，一行占192，即一屏10行
         var options = {
             region: [WIDTH - row_height, row_height],
             threshold: 0.9
@@ -483,6 +486,7 @@ function LollipopRobot() {
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
+        duration = duration || 1000;
         Swipe(x1, y1, x2, y2, duration);
         // 滑动之后有动画
         sleep(1500);
@@ -500,6 +504,7 @@ function NougatRobot() {
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
+        duration = duration || 200;
         return swipe(x1, y1, x2, y2, duration);
     };
 }
@@ -523,8 +528,6 @@ function Robot() {
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
-        duration = duration || 200;
-
         this.robot.swipe(x1, y1, x2, y2, duration);
     };
 
