@@ -8,8 +8,8 @@
  * 3.Auto.js软件版本3.0以上
  *
  * 使用方法：
- * 1.将take.png与脚本放置于同目录下
- * 2.目前支持PIN解锁（5.0+）和图案解锁（7.0+，从1开始），若手机设置了密码，请将password改为实际密码；若无密码，则无需修改
+ * 1.将take.png（找图所需）、config.js（配置文件）与脚本放置于同目录下
+ * 2.目前支持PIN解锁（5.0+）和图案解锁（7.0+，从1开始），若手机设置了密码，请将config.js中的password改为实际密码；若无密码，则无需修改
  * 3.直接启动脚本即可，不用点自己打开支付宝。建议先手动运行一次，成功之后再配置定时任务
  * 4.申请截图的权限时，不需要手动点击"立即开始"，脚本会自行点击"立即开始"。
  * 5.脚本运行时，可以按Home键停止运行
@@ -25,7 +25,7 @@
  * 1.魔趣7.1系统正常，偶尔出现崩溃情况，依赖于Auto.js.apk稳定性
  * @author ridersam <e1399579@gmail.com>
  */
-var config = require("config.js") || {};
+var config = files.isFile("config.js") ? require("config.js") : {};
 var password = config.password || [1, 2, 3, 4]; // 锁屏密码
 var takeImg = config.takeImg || files.cwd() + "/take.png"; // 收取好友能量用到的图片
 
@@ -234,7 +234,7 @@ function AntForest(robot) {
     this.robot = robot;
 
     this.openApp = function () {
-        toastLog("即将收取蚂蚁森林能量，请勿操作！");
+        toastLog("即将收取蚂蚁森林能量，按Home键停止");
 
         launch(ALIPAY);
         //waitForPackage(ALIPAY, 500);
@@ -302,8 +302,14 @@ function AntForest(robot) {
     };
 
     this.work = function () {
+        // 蚂蚁森林控件范围
+        var bounds = className("android.view.View").depth(11).filter(function(o){
+            return o.indexInParent() === 1;
+        }).findOnce().bounds();
+        log(bounds);
+
         // 开始收取
-        this.take("攻略");
+        this.take(bounds);
         toastLog("收取自己的能量完毕");
 
         // 等待好友列表
@@ -332,7 +338,7 @@ function AntForest(robot) {
             exit();
         }
 
-        this.takeOthers(icon, className("android.webkit.WebView").scrollable(true));
+        this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true));
 
         var more = desc("查看更多好友").className("android.view.View").find();
         if (more.length) {
@@ -342,8 +348,8 @@ function AntForest(robot) {
             // 等待更多列表刷新
             if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
                 sleep(2000); // 等待界面渲染
-                //this.takeOthers(icon, desc("没有更多了").className("android.view.View"));
-                this.takeOthers(icon, className("android.webkit.WebView").scrollable(true));
+                //this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"));
+                this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true));
                 this.robot.back();
             } else {
                 toastLog("进入好友排行榜失败");
@@ -356,21 +362,13 @@ function AntForest(robot) {
 
     /**
      * 收取能量
-     * @param keyword
+     * @param bounds
      */
-    this.take = function (keyword) {
-        var right_bottom = className("android.widget.Button").desc(keyword).findOne(TIMEOUT);
-        var left_top = id("com.alipay.mobile.nebula:id/h5_tv_nav_back").findOne(TIMEOUT);
-
+    this.take = function (bounds) {
         var filters = [];
-        var left = 0;
-        var right = WIDTH;
-        var top = left_top ? left_top.bounds().bottom : 215;
-        var bottom = right_bottom ? right_bottom.bounds().top : 1092;
 
-        log(left + "-" + top + "-" + right + "-" + bottom);
-        var all = descMatches("^(绿色能量|\\d+k?g)$").boundsInside(left, top, right, bottom).clickable(true).find();
-        toastLog("找到" + (all.size() - 1) + "个能量球");
+        var all = descMatches("^(绿色能量|\\d+k?g)$").boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
+        toastLog("找到" + (all.length - 1) + "个能量球");
         all.each(function (x) {
             filters.push(x);
         });
@@ -398,10 +396,11 @@ function AntForest(robot) {
 
     /**
      * 收取好友能量
+     * @param bounds
      * @param icon
      * @param endSelector
      */
-    this.takeOthers = function (icon, endSelector) {
+    this.takeOthers = function (bounds, icon, endSelector) {
         var times = 0;
         var prevTop = 0;
         var top = 0;
@@ -411,12 +410,12 @@ function AntForest(robot) {
         var x2 = WIDTH / 2;
         var y2 = row_height;
         while (times < MAX_RETRY_TIMES) {
-            this.takeFromImage(icon);
+            this.takeFromImage(bounds, icon);
 
             this.robot.swipe(x1, y1, x2, y2);
             sleep(1500); // 等待滑动动画
 
-            this.takeFromImage(icon);
+            this.takeFromImage(bounds, icon);
 
             // 到底部了
             var bottomUi = endSelector.find();
@@ -434,9 +433,10 @@ function AntForest(robot) {
 
     /**
      * 找图收取
+     * @param bounds
      * @param icon
      */
-    this.takeFromImage = function (icon) {
+    this.takeFromImage = function (bounds, icon) {
         var point, capture;
         var row_height = 192 * (HEIGHT / 1920); // 在1080*1920的屏幕上，一行占192，即一屏10行
         var options = {
@@ -462,7 +462,7 @@ function AntForest(robot) {
             }
 
             // 收取、返回
-            this.take("浇水");
+            this.take(bounds);
             this.robot.back();
 
             // 等待好友列表刷新
@@ -517,7 +517,7 @@ function Robot() {
     this.robot = (device.sdkInt < 24) ? new LollipopRobot() : new NougatRobot();
 
     this.click = function (x, y, duration) {
-        duration = duration || 50;
+        duration = duration || 10;
 
         return this.robot.click(x, y, duration);
     };
