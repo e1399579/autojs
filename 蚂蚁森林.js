@@ -234,7 +234,7 @@ function AntForest(robot) {
     this.robot = robot;
 
     this.openApp = function () {
-        toastLog("即将收取蚂蚁森林能量，按Home键停止");
+        toastLog("即将收取能量，按Home键停止");
 
         launch(ALIPAY);
         //waitForPackage(ALIPAY, 500);
@@ -265,18 +265,8 @@ function AntForest(robot) {
 
         var success = false;
         var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林");
-        for (var times = 0; times < MAX_RETRY_TIMES; times++) {
-            if (btn.exists()) {
-                log("点击按钮");
-                success = this.robot.clickCenter(btn.findOne(TIMEOUT));
-            }
-            if (success) {
-                break;
-            } else {
-                sleep(20);
-            }
-        }
-        if (!success) {
+        log("点击按钮");
+        if (!this.robot.clickCenter(btn.findOne(TIMEOUT))) {
             toastLog("点击蚂蚁森林失败");
             return false;
         }
@@ -338,26 +328,62 @@ function AntForest(robot) {
             exit();
         }
 
-        this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true));
+        var nextElements = [];
+        var total = 0;
+        total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
 
         var more = desc("查看更多好友").className("android.view.View").find();
         if (more.length) {
             toastLog("查看更多好友");
-            this.robot.clickCenter(more[0]);
-
-            // 等待更多列表刷新
-            if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
-                sleep(2000); // 等待界面渲染
-                //this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"));
-                this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true));
-                this.robot.back();
+            if (this.robot.clickCenter(more[0])) {
+                // 等待更多列表刷新
+                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
+                    sleep(2000); // 等待界面渲染
+                    //this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
+                    total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
+                    this.robot.back();
+                } else {
+                    toastLog("进入好友排行榜失败");
+                }
             } else {
                 toastLog("进入好友排行榜失败");
             }
         }
 
-        toastLog("收取能量完毕");
+        toastLog("收取能量完毕，共" + total + "个好友");
         this.robot.back();
+
+        // 统计下次时间
+        var minuteList = [];
+        nextElements.forEach(function (o) {
+            minuteList.push(parseInt(o.contentDescription));
+        });
+        nextElements = []; // 释放内存
+        // 排序
+        minuteList.sort(function (m1, m2) {
+            return m1 - m2;
+        });
+        // 去掉重复的
+        for (var i = 1, len = minuteList.length; i < len; i++) {
+            // 相差1分钟以内认为是同一元素
+            if ((minuteList[i] - minuteList[i - 1]) <= 1) {
+                minuteList.splice(i--, 1);
+                len--;
+            }
+        }
+        
+        var date = new Date();
+        var timestamp = date.getTime();
+        var timeList = [];
+        for (var i = 0, len = minuteList.length; i < len; i++) {
+            var minute = minuteList[i];
+            var now = timestamp + 60 * minute * 1000;
+            date.setTime(now);
+            timeList.push(date.getHours() + ":" + date.getMinutes());
+        }
+        if (timeList.length) {
+            log("下次收取时间：" + timeList.join(', '));
+        }
     };
 
     /**
@@ -365,13 +391,8 @@ function AntForest(robot) {
      * @param bounds
      */
     this.take = function (bounds) {
-        var filters = [];
-
-        var all = descMatches("^(绿色能量|\\d+k?g)$").boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
-        toastLog("找到" + (all.length - 1) + "个能量球");
-        all.each(function (x) {
-            filters.push(x);
-        });
+        var filters = descMatches(/^(绿色能量|\d+k?g)$/).boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
+        toastLog("找到" + (filters.length - 1) + "个能量球");
 
         // 等待能量球渲染
         sleep(1500);
@@ -382,13 +403,11 @@ function AntForest(robot) {
         });
 
         // 找到第一个并删除（右上角控件）
-        if (filters.length > 0) {
-            filters.splice(0, 1);
-        }
+        filters.splice(0, 1);
 
         for (var i = 0, len = filters.length; i < len; i++) {
             // 原有的click无效
-            this.robot.clickCenter(filters[i], 100);
+            this.robot.clickCenter(filters[i]);
             log("点击->" + filters[i]);
             sleep(200);
         }
@@ -399,8 +418,10 @@ function AntForest(robot) {
      * @param bounds
      * @param icon
      * @param endSelector
+     * @param nextElements
+     * @returns {number}
      */
-    this.takeOthers = function (bounds, icon, endSelector) {
+    this.takeOthers = function (bounds, icon, endSelector, nextElements) {
         var times = 0;
         var prevTop = 0;
         var top = 0;
@@ -409,13 +430,20 @@ function AntForest(robot) {
         var y1 = HEIGHT - row_height;
         var x2 = WIDTH / 2;
         var y2 = row_height;
+        var total = 0;
         while (times < MAX_RETRY_TIMES) {
-            this.takeFromImage(bounds, icon);
+            total += this.takeFromImage(bounds, icon);
+            descMatches(/\d+’/).visibleToUser(true).find().each(function(o) {
+                nextElements.push(o);
+            });
 
             this.robot.swipe(x1, y1, x2, y2);
             sleep(1500); // 等待滑动动画
 
-            this.takeFromImage(bounds, icon);
+            total += this.takeFromImage(bounds, icon);
+            descMatches(/\d+’/).visibleToUser(true).find().each(function(o) {
+                nextElements.push(o);
+            });
 
             // 到底部了
             var bottomUi = endSelector.find();
@@ -429,12 +457,15 @@ function AntForest(robot) {
                 }
             }
         }
+
+        return total;
     };
 
     /**
      * 找图收取
      * @param bounds
      * @param icon
+     * @returns {number}
      */
     this.takeFromImage = function (bounds, icon) {
         var point, capture;
@@ -443,6 +474,7 @@ function AntForest(robot) {
             region: [WIDTH - row_height, row_height],
             threshold: 0.9
         };
+        var total = 0;
         while(true) {
             capture = captureScreen();
             if (null === capture) {
@@ -457,8 +489,9 @@ function AntForest(robot) {
 
             // 等待好友的森林（标题不为空）
             if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT)) {
-                sleep(500); // 等待界面渲染
+                sleep(1500); // 等待界面渲染
                 toastLog("进入好友森林成功");
+                total++;
             }
 
             // 收取、返回
@@ -469,6 +502,8 @@ function AntForest(robot) {
             id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT);
             sleep(1500); // 等待界面渲染及加载
         }
+
+        return total;
     }
 }
 
@@ -479,9 +514,9 @@ function AntForest(robot) {
 function LollipopRobot() {
     this.robot = new RootAutomator();
 
-    this.click = function (x, y, duration) {
+    this.click = function (x, y) {
         Tap(x, y);
-        sleep(duration);
+        sleep(10);
         return true;
     };
 
@@ -499,8 +534,14 @@ function LollipopRobot() {
  * @constructor
  */
 function NougatRobot() {
-    this.click = function (x, y, duration) {
-        return press(x, y, duration);
+    this.click = function (x, y) {
+        // 点击可能出现故障，重试
+        for (var times = 0; times < MAX_RETRY_TIMES; times++) {
+            if (click(x, y)) {
+                return true;
+            }
+        }
+        return false;
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
@@ -516,15 +557,13 @@ function NougatRobot() {
 function Robot() {
     this.robot = (device.sdkInt < 24) ? new LollipopRobot() : new NougatRobot();
 
-    this.click = function (x, y, duration) {
-        duration = duration || 10;
-
-        return this.robot.click(x, y, duration);
+    this.click = function (x, y) {
+        return this.robot.click(x, y);
     };
 
-    this.clickCenter = function (b, duration) {
+    this.clickCenter = function (b) {
         var rect = b.bounds();
-        return this.click(rect.centerX(), rect.centerY(), duration);
+        return this.click(rect.centerX(), rect.centerY());
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
