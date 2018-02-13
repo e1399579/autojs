@@ -8,7 +8,7 @@
  * 3.Auto.js软件版本3.0以上
  *
  * 使用方法：
- * 1.将take.png（找图所需）、config.js（配置文件）与脚本放置于同目录下
+ * 1.将take.png（找图所需，也可以自己截图）、config.js（配置文件）、Robot.js（机器人模块）、Secure.js（解锁模块，可选）与脚本放置于同目录下。并将“蚂蚁森林”按钮设置在支付宝首页
  * 2.目前支持PIN解锁（5.0+）和图案解锁（7.0+，从1开始），若手机设置了密码，请将config.js中的password改为实际密码；若无密码，则无需修改
  * 3.直接启动脚本即可，不用点自己打开支付宝。建议先手动运行一次，成功之后再配置定时任务
  * 4.申请截图的权限时，不需要手动点击"立即开始"，脚本会自行点击"立即开始"。
@@ -53,19 +53,17 @@ function start(takeImg, password) {
         sleep(200);
     }
 
-    var km = context.getSystemService(context.KEYGUARD_SERVICE);
-    var isLocked = km.inKeyguardRestrictedInputMode(); // 是否已经上锁
-    var isSecure = km.isKeyguardSecure(); // 是否设置了密码
+    this.checkModule();
+
     var isRunning = parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result); // 支付宝是否运行
 
     log({
         isScreenOn: isScreenOn,
-        isLocked: isLocked,
-        isSecure: isSecure,
         isRunning: isRunning
     });
 
-    var robot = new Robot();
+    var Robot = require("Robot.js");
+    var robot = new Robot(MAX_RETRY_TIMES);
     var antForest = new AntForest(robot);
 
     // 先打开APP，节省等待时间
@@ -82,9 +80,10 @@ function start(takeImg, password) {
         });
     });
 
-    if (isLocked) {
-        var secure = new Secure(robot);
-        secure.openLock(password);
+    if (files.isFile("Secure.js")) {
+        var Secure = require("Secure.js");
+        var secure = new Secure(robot, MAX_RETRY_TIMES);
+        secure.openLock(password, PATTERN_SIZE);
     }
 
     antForest.launch();
@@ -102,127 +101,17 @@ function start(takeImg, password) {
     exit();
 }
 
-/**
- * 安全相关
- * @constructor
+/** 
+ * 检查必要模块
  */
-function Secure(robot) {
-    this.robot = robot;
+function checkModule() {
+    if (!files.isFile("Robot.js")) {
+        throw new Error("缺少Robot.js文件，请核对第一条");
+    }
 
-    this.openLock = function (password) {
-        log("解锁");
-        for (var i = 0; i < MAX_RETRY_TIMES; i++) {
-            var hasLayer = packageName("com.android.systemui").className("android.widget.FrameLayout").exists(); // 是否有上滑图层
-            // 向上滑动即可解锁
-            if (hasLayer) {
-                log("向上滑动");
-                this.openLayer();
-            }
-
-            if (this.unlock(password)) {
-                return true;
-            } else {
-                toastLog("解锁失败，重试");
-            }
-        }
-
-        toastLog("解锁失败，不再重试");
-        this.failed();
-    };
-
-    this.failed = function () {
-        KeyCode("KEYCODE_POWER");
-        engines.stopAll();
-        exit();
-        return false;
-    };
-
-    this.openLayer = function () {
-        var x = WIDTH / 2;
-        var y = HEIGHT - 100;
-        this.robot.swipe(x, y, x, 100, 750);
-        sleep(500); // 等待动画
-    };
-
-    this.unlock = function (password) {
-        var len = password.length;
-
-        if (len < 4) {
-            throw new Error("密码至少4位");
-        }
-
-        if (id("com.android.systemui:id/lockPatternView").exists()) {
-            return this.unlockPattern(password, len);
-        } else {
-            return this.unlockKey(password, len);
-        }
-    };
-
-    this.unlockKey = function (password, len) {
-        for (var j = 0; j < len; j++) {
-            var key_id = "com.android.systemui:id/key" + password[j];
-            if (!id(key_id).exists()) {
-                return false;
-            }
-            id(key_id).findOne(TIMEOUT).click();
-        }
-        if (id("com.android.systemui:id/key_enter").exists()) {
-            id("com.android.systemui:id/key_enter").findOne(TIMEOUT).click();
-        }
-
-        sleep(500); // 等待动画
-        if (id("android:id/message").textContains("重试").exists()) {
-            toastLog("密码错误");
-            return this.failed();
-        }
-        return !id("com.android.systemui:id/key0").exists();
-    };
-
-    this.unlockPattern = function (password, len) {
-        var selector = id("com.android.systemui:id/lockPatternView");
-        if (!selector.exists()) {
-            return false;
-        }
-        var pattern = selector.findOne(TIMEOUT);
-        var rect = pattern.bounds();
-        // 使用坐标查找按键
-        var oX = rect.left, oY = rect.top; // 第一个点位置
-        var w = (rect.right - rect.left) / PATTERN_SIZE, h = (rect.bottom - rect.top) / PATTERN_SIZE; // 2点之单间隔为边框的1/3
-        var points = [];
-
-        points[0] = {
-            x: 0,
-            y: 0
-        };
-        // 初始化每个点的坐标
-        for (var i = 1; i <= PATTERN_SIZE; i++) {
-            for (var j = 1; j <= PATTERN_SIZE; j++) {
-                var row = i - 1;
-                var col = j - 1;
-                var index = PATTERN_SIZE * (i - 1) + j; // 序号，从1开始
-                points[index] = {
-                    x: oX + col * w + w / 2,
-                    y: oY + row * h + h / 2
-                };
-            }
-        }
-
-        // 使用手势解锁
-        var gestureParam = [100 * len];
-        for (var i = 0; i < len; i++) {
-            var point = points[password[i]];
-
-            gestureParam.push([point.x, point.y]);
-        }
-        gestures(gestureParam);
-
-        sleep(500); // 等待动画
-        if (id("android:id/message").textContains("重试").exists()) {
-            toastLog("密码错误");
-            return this.failed();
-        }
-        return !selector.exists();
-    };
+    if (!files.isFile("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
+        throw new Error("缺少Secure.js文件，请核对第一条");
+    }
 }
 
 /**
@@ -237,7 +126,6 @@ function AntForest(robot) {
         toastLog("即将收取能量，按Home键停止");
 
         launch(ALIPAY);
-        //waitForPackage(ALIPAY, 500);
     };
 
     this.launch = function () {
@@ -258,15 +146,27 @@ function AntForest(robot) {
     };
 
     this.doLaunch = function () {
+        // 可能出现的红包弹框，点击取消
+        threads.start(function () {
+            var cancelBtn;
+            if (cancelBtn = id("com.alipay.android.phone.wallet.sharetoken:id/btn1").findOne(TIMEOUT)) {
+                cancelBtn.click();
+            }
+        });
+
         if (!id("com.alipay.android.phone.openplatform:id/saoyisao_tv").findOne(TIMEOUT)) {
             toastLog("进入支付宝首页失败");
             return false;
         }
 
         var success = false;
-        var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林");
+        var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林").findOne(TIMEOUT);
+        if (!btn) {
+            toastLog("查找蚂蚁森林按钮失败");
+            return false;
+        }
         log("点击按钮");
-        if (!this.robot.clickCenter(btn.findOne(TIMEOUT))) {
+        if (!this.robot.clickCenter(btn)) {
             toastLog("点击蚂蚁森林失败");
             return false;
         }
@@ -293,7 +193,7 @@ function AntForest(robot) {
 
     this.work = function () {
         // 蚂蚁森林控件范围
-        var bounds = className("android.view.View").depth(11).filter(function(o){
+        var bounds = className("android.view.View").depth(11).filter(function (o) {
             return o.indexInParent() === 1;
         }).findOnce().bounds();
         log(bounds);
@@ -338,9 +238,9 @@ function AntForest(robot) {
             if (this.robot.clickCenter(more[0])) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
-                    sleep(2000); // 等待界面渲染
-                    //this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
-                    total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
+                    sleep(3000); // 等待界面渲染
+                    total += this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
+                    //total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
                     this.robot.back();
                 } else {
                     toastLog("进入好友排行榜失败");
@@ -371,7 +271,7 @@ function AntForest(robot) {
                 len--;
             }
         }
-        
+
         var date = new Date();
         var timestamp = date.getTime();
         var timeList = [];
@@ -391,11 +291,10 @@ function AntForest(robot) {
      * @param bounds
      */
     this.take = function (bounds) {
-        var filters = descMatches(/^(绿色能量|\d+k?g)$/).boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
-        toastLog("找到" + (filters.length - 1) + "个能量球");
-
         // 等待能量球渲染
         sleep(1500);
+        var filters = descMatches(/^(绿色能量|\d+k?g)$/).boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
+        toastLog("找到" + (filters.length - 1) + "个能量球");
 
         // 按在父元素中的位置顺序排，总能量为第一个
         filters.sort(function (o1, o2) {
@@ -433,7 +332,7 @@ function AntForest(robot) {
         var total = 0;
         while (times < MAX_RETRY_TIMES) {
             total += this.takeFromImage(bounds, icon);
-            descMatches(/\d+’/).visibleToUser(true).find().each(function(o) {
+            descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
                 nextElements.push(o);
             });
 
@@ -441,7 +340,7 @@ function AntForest(robot) {
             sleep(1500); // 等待滑动动画
 
             total += this.takeFromImage(bounds, icon);
-            descMatches(/\d+’/).visibleToUser(true).find().each(function(o) {
+            descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
                 nextElements.push(o);
             });
 
@@ -475,7 +374,7 @@ function AntForest(robot) {
             threshold: 0.9
         };
         var total = 0;
-        while(true) {
+        while (true) {
             capture = captureScreen();
             if (null === capture) {
                 sleep(20);
@@ -505,77 +404,5 @@ function AntForest(robot) {
 
         return total;
     }
-}
-
-/**
- * 安卓5机器人
- * @constructor
- */
-function LollipopRobot() {
-    this.robot = new RootAutomator();
-
-    this.click = function (x, y) {
-        Tap(x, y);
-        sleep(10);
-        return true;
-    };
-
-    this.swipe = function (x1, y1, x2, y2, duration) {
-        duration = duration || 1000;
-        Swipe(x1, y1, x2, y2, duration);
-        // 滑动之后有动画
-        sleep(1500);
-        return true;
-    };
-}
-
-/**
- * 安卓7机器人
- * @constructor
- */
-function NougatRobot() {
-    this.click = function (x, y) {
-        // 点击可能出现故障，重试
-        for (var times = 0; times < MAX_RETRY_TIMES; times++) {
-            if (click(x, y)) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    this.swipe = function (x1, y1, x2, y2, duration) {
-        duration = duration || 200;
-        return swipe(x1, y1, x2, y2, duration);
-    };
-}
-
-/**
- * 机器人工厂
- * @constructor
- */
-function Robot() {
-    this.robot = (device.sdkInt < 24) ? new LollipopRobot() : new NougatRobot();
-
-    this.click = function (x, y) {
-        return this.robot.click(x, y);
-    };
-
-    this.clickCenter = function (b) {
-        var rect = b.bounds();
-        return this.click(rect.centerX(), rect.centerY());
-    };
-
-    this.swipe = function (x1, y1, x2, y2, duration) {
-        this.robot.swipe(x1, y1, x2, y2, duration);
-    };
-
-    this.back = function () {
-        KeyCode("KEYCODE_BACK");
-    };
-
-    this.kill = function (package_name) {
-        shell("am force-stop " + package_name, true);
-    };
 }
 
