@@ -99,7 +99,7 @@ function WeChatSport(robot, options) {
 
         do {
             var btn;
-            if (btn = text(btns[0]).findOne(this.options.timeout)) {
+            if (btn = text(btns[0]).visibleToUser(true).findOne(this.options.timeout)) {
                 this.robot.clickCenter(btn);
                 btns.shift();
                 sleep(500);
@@ -136,7 +136,7 @@ function WeChatSport(robot, options) {
                 }
             }.bind(this));
 
-            sleep(500);
+            sleep(1500);
         } while (this.nextPage());
 
         // 返回主界面
@@ -149,7 +149,7 @@ function WeChatSport(robot, options) {
     };
 
     this.isRank = function () {
-        sleep(500);
+        sleep(200);
         return currentActivity() === this.activity;
     }
 

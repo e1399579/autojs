@@ -166,7 +166,7 @@ function AntForest(robot) {
             return false;
         }
         log("点击按钮");
-        if (!this.robot.clickCenter(btn)) {
+        if (!btn.parent().click()) {
             toastLog("点击蚂蚁森林失败");
             return false;
         }
