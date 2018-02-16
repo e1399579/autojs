@@ -212,10 +212,16 @@ function AntForest(robot, options) {
 
     this.work = function () {
         var timeout = this.options.timeout;
+        
+        var elements = className("android.view.View").visibleToUser(true).filter(function (o) {
+            return (o.indexInParent() === 1) && (o.contentDescription === "");
+        }).find();
+        // 按高度倒序排
+        elements.sort(function (o1, o2) {
+            return o2.bounds().height() - o2.bounds().height();
+        });
         // 蚂蚁森林控件范围
-        var bounds = packageName(this.package).className("android.view.View").depth(11).filter(function (o) {
-            return o.indexInParent() === 1;
-        }).findOnce().bounds();
+        var bounds = elements.shift().bounds();
         log(bounds);
 
         // 开始收取
