@@ -13,6 +13,7 @@
  * 3.直接启动脚本即可，不用点自己打开支付宝。建议先手动运行一次，成功之后再配置定时任务
  * 4.申请截图的权限时，不需要手动点击"立即开始"，脚本会自行点击"立即开始"。
  * 5.脚本运行时，可以按Home键停止运行
+ * 6.可修改config.js配置文件以保存参数，脚本更新可以不用再覆盖它
  *
  * 定时任务（建议）步骤：
  * 1.安装edge pro软件
@@ -25,27 +26,31 @@
  * 1.魔趣7.1系统正常，偶尔出现崩溃情况，依赖于Auto.js.apk稳定性
  * @author ridersam <e1399579@gmail.com>
  */
+auto(); // 自动打开无障碍服务
 var config = files.isFile("config.js") ? require("config.js") : {};
-var password = config.password || [1, 2, 3, 4]; // 锁屏密码
-var takeImg = config.takeImg || files.cwd() + "/take.png"; // 收取好友能量用到的图片
+var default_config = {
+    password: [1, 2, 3, 4], // 锁屏密码
+    takeImg: "take.png", // 收取好友能量用到的图片
+    pattern_size: 3, // 图案解锁每行点数
+    max_retry_times: 10, // 最大失败重试次数
+    timeout: 6000 // 超时时间：毫秒
+};
+if (typeof config !== "object") {
+    config = {};
+}
+var options = Object.assign(default_config, config); // 用户配置合并
 
-const PATTERN_SIZE = config.pattern_size || 3; // 图案解锁每行点数
-const MAX_RETRY_TIMES = config.max_retry_times || 10; // 最大失败重试次数
-const TIMEOUT = config.timeout || 6000; // 超时时间：毫秒
-const ALIPAY = "com.eg.android.AlipayGphone"; // 支付宝包名
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
 
-auto();
-start(takeImg, password);
+start(options);
 
 /**
  * 开始运行
- * @param takeImg
- * @param password
+ * @param options
  */
-function start(takeImg, password) {
+function start(options) {
     var isScreenOn = device.isScreenOn(); // 屏幕是否点亮
     if (!isScreenOn) {
         log("唤醒");
@@ -63,7 +68,7 @@ function start(takeImg, password) {
     });
 
     var Robot = require("Robot.js");
-    var robot = new Robot(MAX_RETRY_TIMES);
+    var robot = new Robot(options.max_retry_times);
     var antForest = new AntForest(robot);
 
     // 先打开APP，节省等待时间
@@ -80,17 +85,17 @@ function start(takeImg, password) {
         });
     });
 
-    if (files.isFile("Secure.js")) {
+    if (files.exists("Secure.js")) {
         var Secure = require("Secure.js");
-        var secure = new Secure(robot, MAX_RETRY_TIMES);
-        secure.openLock(password, PATTERN_SIZE);
+        var secure = new Secure(robot, options.max_retry_times);
+        secure.openLock(options.password, options.pattern_size);
     }
 
     antForest.launch();
     antForest.work();
 
     if (!isRunning) {
-        robot.kill(ALIPAY);
+        antForest.closeApp();
     }
 
     if (!isScreenOn) {
@@ -101,15 +106,15 @@ function start(takeImg, password) {
     exit();
 }
 
-/** 
+/**
  * 检查必要模块
  */
 function checkModule() {
-    if (!files.isFile("Robot.js")) {
+    if (!files.exists("Robot.js")) {
         throw new Error("缺少Robot.js文件，请核对第一条");
     }
 
-    if (!files.isFile("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
+    if (!files.exists("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
         throw new Error("缺少Secure.js文件，请核对第一条");
     }
 }
@@ -117,15 +122,28 @@ function checkModule() {
 /**
  * 蚂蚁森林的各个操作
  * @param robot
+ * @param options
  * @constructor
  */
-function AntForest(robot) {
+function AntForest(robot, options) {
     this.robot = robot;
+    options = options || {};
+    var settings = {
+        timeout: 6000,
+        max_retry_times: 10,
+        takeImg: "take.png"
+    };
+    this.options = Object.assign(settings, options);
+    this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
 
     this.openApp = function () {
         toastLog("即将收取能量，按Home键停止");
 
-        launch(ALIPAY);
+        launch(this.package);
+    };
+
+    this.closeApp = function () {
+        this.robot.kill(this.package);
     };
 
     this.launch = function () {
@@ -135,10 +153,10 @@ function AntForest(robot) {
                 return;
             } else {
                 times++;
-                this.robot.kill(ALIPAY);
+                this.closeApp();
                 this.openApp();
             }
-        } while (times < MAX_RETRY_TIMES);
+        } while (times < this.options.max_retry_times);
 
         toastLog("运行失败");
         engines.stopAll();
@@ -147,20 +165,21 @@ function AntForest(robot) {
 
     this.doLaunch = function () {
         // 可能出现的红包弹框，点击取消
+        var timeout = this.options.timeout;
         threads.start(function () {
             var cancelBtn;
-            if (cancelBtn = id("com.alipay.android.phone.wallet.sharetoken:id/btn1").findOne(TIMEOUT)) {
+            if (cancelBtn = id("com.alipay.android.phone.wallet.sharetoken:id/btn1").findOne(timeout)) {
                 cancelBtn.click();
             }
         });
 
-        if (!id("com.alipay.android.phone.openplatform:id/saoyisao_tv").findOne(TIMEOUT)) {
+        if (!id("com.alipay.android.phone.openplatform:id/saoyisao_tv").findOne(timeout)) {
             toastLog("进入支付宝首页失败");
             return false;
         }
 
         var success = false;
-        var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林").findOne(TIMEOUT);
+        var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林").findOne(timeout);
         if (!btn) {
             toastLog("查找蚂蚁森林按钮失败");
             return false;
@@ -172,7 +191,7 @@ function AntForest(robot) {
         }
 
         // 等待加载
-        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(TIMEOUT)) {
+        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(timeout)) {
             sleep(2000); // 等待界面渲染
             toastLog("进入蚂蚁森林成功");
         } else {
@@ -192,8 +211,9 @@ function AntForest(robot) {
     };
 
     this.work = function () {
+        var timeout = this.options.timeout;
         // 蚂蚁森林控件范围
-        var bounds = className("android.view.View").depth(11).filter(function (o) {
+        var bounds = packageName(this.package).className("android.view.View").depth(11).filter(function (o) {
             return o.indexInParent() === 1;
         }).findOnce().bounds();
         log(bounds);
@@ -205,7 +225,7 @@ function AntForest(robot) {
         // 等待好友列表
         sleep(2000);
         toastLog("开始收取好友能量");
-        var icon = images.read(takeImg);
+        var icon = images.read(this.options.takeImg);
         if (null === icon) {
             toastLog("缺少图片文件，请仔细查看使用方法的第一条！！！");
             engines.stopAll();
@@ -215,10 +235,10 @@ function AntForest(robot) {
         threads.start(function () {
             var remember;
             var beginBtn;
-            if (remember = id("com.android.systemui:id/remember").checkable(true).findOne(TIMEOUT)) {
+            if (remember = id("com.android.systemui:id/remember").checkable(true).findOne(timeout)) {
                 remember.click();
             }
-            if (beginBtn = classNameContains("Button").textContains("立即开始").findOne(TIMEOUT)) {
+            if (beginBtn = classNameContains("Button").textContains("立即开始").findOne(timeout)) {
                 beginBtn.click();
             }
         });
@@ -237,7 +257,7 @@ function AntForest(robot) {
             toastLog("查看更多好友");
             if (this.robot.clickCenter(more[0])) {
                 // 等待更多列表刷新
-                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(TIMEOUT)) {
+                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout)) {
                     sleep(3000); // 等待界面渲染
                     total += this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
                     //total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
@@ -330,7 +350,7 @@ function AntForest(robot) {
         var x2 = WIDTH / 2;
         var y2 = row_height;
         var total = 0;
-        while (times < MAX_RETRY_TIMES) {
+        while (times < this.options.max_retry_times) {
             total += this.takeFromImage(bounds, icon);
             descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
                 nextElements.push(o);
@@ -384,10 +404,12 @@ function AntForest(robot) {
             if (null === point) {
                 break;
             }
-            this.robot.click(WIDTH / 2, point.y + row_height / 2); // 点击一行中间
+            var x = WIDTH / 2;
+            var y = Math.min(HEIGHT, point.y + row_height / 2); // 防止点到屏幕下面
+            this.robot.click(x, y); // 点击一行中间
 
             // 等待好友的森林（标题不为空）
-            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT)) {
+            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout)) {
                 sleep(1500); // 等待界面渲染
                 toastLog("进入好友森林成功");
                 total++;
@@ -398,7 +420,7 @@ function AntForest(robot) {
             this.robot.back();
 
             // 等待好友列表刷新
-            id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(TIMEOUT);
+            id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout);
             sleep(1500); // 等待界面渲染及加载
         }
 
