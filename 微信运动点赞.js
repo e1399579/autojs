@@ -136,7 +136,7 @@ function WeChatSport(robot, options) {
                 }
             }.bind(this));
 
-            sleep(1500);
+            sleep(2000);
         } while (this.nextPage());
 
         // 返回主界面
