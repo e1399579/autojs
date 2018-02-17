@@ -70,8 +70,13 @@ function Secure(robot, max_retry_times) {
 
         if (id("com.android.systemui:id/lockPatternView").exists()) {
             return this.unlockPattern(password, len, pattern_size);
-        } else {
+        } else if (id("com.android.systemui:id/passwordEntry").exists()) {
+            return this.unlockPassword(password);
+        } else if (id("com.android.systemui:id/pinEntry").exists()) {
             return this.unlockKey(password, len);
+        } else {
+            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
+            return this.failed();
         }
     };
 
@@ -87,13 +92,7 @@ function Secure(robot, max_retry_times) {
             id("com.android.systemui:id/key_enter").findOne(1000).click();
         }
 
-        sleep(1500); // 等待动画
-        if (id("android:id/message").textContains("重试").exists()) {
-            toastLog("密码错误");
-            return this.failed();
-        }
-
-        return !this.km.inKeyguardRestrictedInputMode();
+        return this.checkUnlock();
     };
 
     this.unlockPattern = function (password, len, pattern_size) {
@@ -130,6 +129,21 @@ function Secure(robot, max_retry_times) {
         }
         gestures(gestureParam);
 
+        return this.checkUnlock();
+    };
+
+    this.unlockPassword = function (password) {
+        if (typeof password !== "string") {
+            password = password.join("");
+        }
+        Text(password); // 输入密码
+        KeyCode("KEYCODE_ENTER"); // 按Enter
+
+        sleep(1500);
+        return this.checkUnlock();
+    };
+
+    this.checkUnlock = function () {
         sleep(1500); // 等待动画
         if (id("android:id/message").textContains("重试").exists()) {
             toastLog("密码错误");
