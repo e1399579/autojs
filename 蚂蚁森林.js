@@ -60,19 +60,13 @@ function start(options) {
 
     this.checkModule();
 
-    var isRunning = parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result); // 支付宝是否运行
-
-    log({
-        isScreenOn: isScreenOn,
-        isRunning: isRunning
-    });
-
     var Robot = require("Robot.js");
     var robot = new Robot(options.max_retry_times);
     var antForest = new AntForest(robot);
 
     // 先打开APP，节省等待时间
     threads.start(function () {
+        antForest.saveState(isScreenOn);
         antForest.openApp();
     });
     // 子线程监听Home键
@@ -93,14 +87,8 @@ function start(options) {
 
     antForest.launch();
     antForest.work();
+    antForest.resumeState();
 
-    if (!isRunning) {
-        antForest.closeApp();
-    }
-
-    if (!isScreenOn) {
-        KeyCode("KEYCODE_POWER");
-    }
     // 退出全部线程
     engines.stopAll();
     exit();
@@ -135,6 +123,28 @@ function AntForest(robot, options) {
     };
     this.options = Object.assign(settings, options);
     this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
+    this.state = {};
+
+    this.saveState = function (isScreenOn) {
+        this.state.isScreenOn = isScreenOn;
+        this.state.currentPackage = currentPackage(); // 当前运行的程序
+        this.state.isRunning = parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result); // 支付宝是否运行
+        log(this.state);
+    };
+
+    this.resumeState = function() {
+        if (this.state.currentPackage !== this.package) {
+            this.robot.back(); // 回到之前运行的程序
+        }
+
+        if (!this.state.isRunning) {
+            this.closeApp();
+        }
+
+        if (!this.state.isScreenOn) {
+            KeyCode("KEYCODE_POWER");
+        }
+    };
 
     this.openApp = function () {
         toastLog("即将收取能量，按Home键停止");
@@ -185,14 +195,13 @@ function AntForest(robot, options) {
             return false;
         }
         log("点击按钮");
-        if (!btn.parent().click()) {
+        if (!(btn.parent() && btn.parent().click())) {
             toastLog("点击蚂蚁森林失败");
             return false;
         }
 
         // 等待加载
-        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(timeout)) {
-            sleep(2000); // 等待界面渲染
+        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(timeout) && this.waitForLoading()) {
             toastLog("进入蚂蚁森林成功");
         } else {
             toastLog("进入蚂蚁森林失败");
@@ -208,6 +217,31 @@ function AntForest(robot, options) {
         this.robot.click(dialog_x, dialog_y);
 
         return true;
+    };
+
+    this.waitForLoading = function() {
+        var timeout = this.options.timeout;
+        
+        var i = 0;
+        do {
+            var webView = className("android.webkit.WebView").findOne(timeout);
+            if (!webView) return false;
+            if (!webView.child(1)) continue;
+
+            var elementCount = webView.child(1).childCount();
+            if (elementCount > 1) {
+                sleep(1000); // 等待界面渲染
+                return true; // 加载成功
+            } else if (0 === elementCount) {
+                continue; // 加载中
+            } else {
+                return false; // 失败
+            }
+
+            i += 200;
+        } while(i < timeout);
+
+        return fasle;
     };
 
     this.work = function () {
@@ -263,14 +297,14 @@ function AntForest(robot, options) {
             toastLog("查看更多好友");
             if (this.robot.clickCenter(more[0])) {
                 // 等待更多列表刷新
-                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout)) {
-                    sleep(3000); // 等待界面渲染
+                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
+                    toastLog("进入好友排行榜成功");
                     total += this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
                     //total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
-                    this.robot.back();
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
+                this.robot.back();
             } else {
                 toastLog("进入好友排行榜失败");
             }
@@ -400,10 +434,13 @@ function AntForest(robot, options) {
             threshold: 0.9
         };
         var total = 0;
-        while (true) {
+        var times = 0;
+        while (times < this.options.max_retry_times) {
             capture = captureScreen();
             if (null === capture) {
-                sleep(20);
+                toastLog("截图失败");
+                times++;
+                sleep(200);
                 continue;
             }
             point = findImage(capture, icon, options);
@@ -414,20 +451,22 @@ function AntForest(robot, options) {
             var y = Math.min(HEIGHT, point.y + row_height / 2); // 防止点到屏幕下面
             this.robot.click(x, y); // 点击一行中间
 
-            // 等待好友的森林（标题不为空）
-            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout)) {
-                sleep(1500); // 等待界面渲染
+            // 等待好友的森林
+            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout) && this.waitForLoading()) {
                 toastLog("进入好友森林成功");
                 total++;
+                // 收取
+                this.take(bounds);
+            } else {
+                toastLog("进入好友森林失败");
             }
 
-            // 收取、返回
-            this.take(bounds);
+            // 返回好友列表
             this.robot.back();
 
             // 等待好友列表刷新
             id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout);
-            sleep(1500); // 等待界面渲染及加载
+            this.waitForLoading(); // 等待界面渲染及加载
         }
 
         return total;
