@@ -55,7 +55,7 @@ function start(options) {
     if (!isScreenOn) {
         log("唤醒");
         device.wakeUp();
-        sleep(200);
+        sleep(500);
     }
 
     this.checkModule();
@@ -132,7 +132,7 @@ function AntForest(robot, options) {
         log(this.state);
     };
 
-    this.resumeState = function() {
+    this.resumeState = function () {
         if (this.state.currentPackage !== this.package) {
             this.robot.back(); // 回到之前运行的程序
         }
@@ -219,48 +219,58 @@ function AntForest(robot, options) {
         return true;
     };
 
-    this.waitForLoading = function() {
+    this.waitForLoading = function () {
         var timeout = this.options.timeout;
-        
-        var i = 0;
-        do {
+        var waitTime = 200;
+        for (var i = 0; i < timeout; i += waitTime) {
             var webView = className("android.webkit.WebView").findOne(timeout);
             if (!webView) return false;
-            if (!webView.child(1)) continue;
+            if (!webView.child(1)) {
+                sleep(waitTime);
+                continue;
+            }
 
             var elementCount = webView.child(1).childCount();
             if (elementCount > 1) {
                 sleep(1000); // 等待界面渲染
                 return true; // 加载成功
             } else if (0 === elementCount) {
+                sleep(waitTime);
                 continue; // 加载中
             } else {
                 return false; // 失败
             }
+        }
 
-            i += 200;
-        } while(i < timeout);
+        return false;
+    };
 
-        return fasle;
+    this.findForest = function () {
+        return className("android.webkit.WebView").findOnce().child(1);
+    };
+
+    this.getPower = function (forest) {
+        return parseInt(forest.child(0).contentDescription);
+    };
+
+    this.getTakePower = function () {
+        return parseInt(desc("你收取TA").findOnce().parent().child(2).contentDescription);
     };
 
     this.work = function () {
         var timeout = this.options.timeout;
-        
-        var elements = className("android.view.View").visibleToUser(true).filter(function (o) {
-            return (o.indexInParent() === 1) && (o.contentDescription === "");
-        }).find();
-        // 按高度倒序排
-        elements.sort(function (o1, o2) {
-            return o2.bounds().height() - o2.bounds().height();
-        });
         // 蚂蚁森林控件范围
-        var bounds = elements.shift().bounds();
+        var forest = this.findForest();
+        var bounds = forest.bounds();
         log(bounds);
+
+        var startPower = this.getPower(forest);
 
         // 开始收取
         this.take(bounds);
-        toastLog("收取自己的能量完毕");
+        sleep(500);
+        var power = this.getPower(this.findForest()) - startPower;
+        toastLog("收取了" + power + "g自己的能量");
 
         // 等待好友列表
         sleep(2000);
@@ -301,17 +311,21 @@ function AntForest(robot, options) {
                     toastLog("进入好友排行榜成功");
                     total += this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
                     //total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
+                    this.robot.back();
+                    sleep(1500);
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
-                this.robot.back();
             } else {
                 toastLog("进入好友排行榜失败");
             }
         }
 
-        toastLog("收取能量完毕，共" + total + "个好友");
+        var endPower = this.getPower(this.findForest());
+        var added = endPower - startPower;
+
         this.robot.back();
+        toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
 
         // 统计下次时间
         var minuteList = [];
@@ -354,7 +368,6 @@ function AntForest(robot, options) {
         // 等待能量球渲染
         sleep(1500);
         var filters = descMatches(/^(绿色能量|\d+k?g)$/).boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
-        toastLog("找到" + (filters.length - 1) + "个能量球");
 
         // 按在父元素中的位置顺序排，总能量为第一个
         filters.sort(function (o1, o2) {
@@ -362,12 +375,13 @@ function AntForest(robot, options) {
         });
 
         // 找到第一个并删除（右上角控件）
-        filters.splice(0, 1);
+        filters.shift();
+        toastLog("找到" + filters.length + "个能量球");
 
         for (var i = 0, len = filters.length; i < len; i++) {
             // 原有的click无效
             this.robot.clickCenter(filters[i]);
-            log("点击->" + filters[i]);
+            log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
             sleep(200);
         }
     };
@@ -452,17 +466,23 @@ function AntForest(robot, options) {
             this.robot.click(x, y); // 点击一行中间
 
             // 等待好友的森林
-            if (id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout) && this.waitForLoading()) {
-                toastLog("进入好友森林成功");
+            var title = "好友森林";
+            if ((title = id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout)) && this.waitForLoading()) {
+                toastLog("进入" + title.text() + "成功");
                 total++;
                 // 收取
+                var takePower = this.getTakePower();
                 this.take(bounds);
+                sleep(1500);
+                var added = this.getTakePower() - takePower;
+                toastLog("收取了" + added + "g能量");
             } else {
                 toastLog("进入好友森林失败");
             }
 
             // 返回好友列表
             this.robot.back();
+            sleep(1500);
 
             // 等待好友列表刷新
             id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout);
