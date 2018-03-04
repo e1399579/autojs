@@ -62,7 +62,7 @@ function start(options) {
 
     var Robot = require("Robot.js");
     var robot = new Robot(options.max_retry_times);
-    var antForest = new AntForest(robot);
+    var antForest = new AntForest(robot, options);
 
     // 先打开APP，节省等待时间
     threads.start(function () {
