@@ -322,6 +322,10 @@ function AntForest(robot, options) {
         }
 
         var endPower = this.getPower(this.findForest());
+        if (isNaN(endPower)) {
+            sleep(1500);
+            endPower = this.getPower(this.findForest());
+        }
         var added = endPower - startPower;
 
         this.robot.back();
@@ -475,6 +479,10 @@ function AntForest(robot, options) {
                 this.take(bounds);
                 sleep(1500);
                 var added = this.getTakePower() - takePower;
+                if ((0 === added) || isNaN(added)) {
+                    sleep(1500);
+                    added = this.getTakePower() - takePower;
+                }
                 toastLog("收取了" + added + "g能量");
             } else {
                 toastLog("进入好友森林失败");
