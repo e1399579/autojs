@@ -272,9 +272,6 @@ function AntForest(robot, options) {
         var power = this.getPower(this.findForest()) - startPower;
         toastLog("收取了" + power + "g自己的能量");
 
-        // 等待好友列表
-        sleep(2000);
-        toastLog("开始收取好友能量");
         var icon = images.read(this.options.takeImg);
         if (null === icon) {
             toastLog("缺少图片文件，请仔细查看使用方法的第一条！！！");
@@ -298,19 +295,38 @@ function AntForest(robot, options) {
             exit();
         }
 
+        // 跳过当前屏幕
+        this.robot.swipe(WIDTH / 2, HEIGHT, WIDTH / 2, (HEIGHT * 0.1) | 0);
+        sleep(1500);
+        toastLog("开始收取好友能量");
+
         var nextElements = [];
         var total = 0;
-        total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
+        total += this.takeOthers(bounds, icon, function () {
+            var selector = className("android.webkit.WebView").scrollable(true);
+            if (!selector.exists()) return false;
+            
+            var list = selector.findOne().child(2).child(1);
+            var num = list.childCount();
+            if (num < 1) return true;
+            
+            return list.child(num - 1).visibleToUser();
+        }, nextElements);
 
-        var more = desc("查看更多好友").className("android.view.View").find();
+        var more = desc("查看更多好友").find();
         if (more.length) {
+            log(more[0].bounds());
             toastLog("查看更多好友");
             if (this.robot.clickCenter(more[0])) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
                     toastLog("进入好友排行榜成功");
-                    total += this.takeOthers(bounds, icon, desc("没有更多了").className("android.view.View"), nextElements);
-                    //total += this.takeOthers(bounds, icon, className("android.webkit.WebView").scrollable(true), nextElements);
+                    total += this.takeOthers(bounds, icon, function () {
+                        var selector = desc("没有更多了");
+                        if (!selector.exists()) return false;
+
+                        return selector.findOne().visibleToUser();
+                    }, nextElements);
                     this.robot.back();
                     sleep(1500);
                 } else {
@@ -394,45 +410,29 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param bounds
      * @param icon
-     * @param endSelector
+     * @param isEndFunc
      * @param nextElements
      * @returns {number}
      */
-    this.takeOthers = function (bounds, icon, endSelector, nextElements) {
-        var times = 0;
-        var prevTop = 0;
-        var top = 0;
-        var row_height = 192 * (HEIGHT / 1920);
+    this.takeOthers = function (bounds, icon, isEndFunc, nextElements) {
+        // 9/10滑到1/10屏幕
         var x1 = WIDTH / 2;
-        var y1 = HEIGHT - row_height;
+        var y1 = (HEIGHT * 0.9) | 0;
         var x2 = WIDTH / 2;
-        var y2 = row_height;
+        var y2 = (HEIGHT * 0.1) | 0;
         var total = 0;
-        while (times < this.options.max_retry_times) {
+        while(1) {
             total += this.takeFromImage(bounds, icon);
             descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
                 nextElements.push(o);
             });
+
+            if (isEndFunc()) {
+                break;
+            }
 
             this.robot.swipe(x1, y1, x2, y2);
             sleep(1500); // 等待滑动动画
-
-            total += this.takeFromImage(bounds, icon);
-            descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
-                nextElements.push(o);
-            });
-
-            // 到底部了
-            var bottomUi = endSelector.find();
-            if (bottomUi.length) {
-                top = bottomUi[0].bounds().top;
-                if (top === prevTop) {
-                    break;
-                } else {
-                    prevTop = top;
-                    times++;
-                }
-            }
         }
 
         return total;
@@ -446,10 +446,10 @@ function AntForest(robot, options) {
      */
     this.takeFromImage = function (bounds, icon) {
         var point, capture;
-        var row_height = 192 * (HEIGHT / 1920); // 在1080*1920的屏幕上，一行占192，即一屏10行
+        var row_height = HEIGHT / 10;
         var options = {
             region: [WIDTH - row_height, row_height],
-            threshold: 0.9
+            threshold: 0.8
         };
         var total = 0;
         var times = 0;
