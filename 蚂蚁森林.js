@@ -202,7 +202,7 @@ function AntForest(robot, options) {
 
         // 等待加载
         if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(timeout) && this.waitForLoading()) {
-            toastLog("进入蚂蚁森林成功");
+            log("进入蚂蚁森林成功");
         } else {
             toastLog("进入蚂蚁森林失败");
             return false;
@@ -211,10 +211,11 @@ function AntForest(robot, options) {
         // 对话出现
         var dialog_x = WIDTH / 2;
         var dialog_y = 510 * (HEIGHT / 1920);
-        sleep(2000);
+        sleep(1000);
 
         // 点击对话消失
         this.robot.click(dialog_x, dialog_y);
+        sleep(500);
 
         return true;
     };
@@ -246,7 +247,7 @@ function AntForest(robot, options) {
     };
 
     this.findForest = function () {
-        return className("android.webkit.WebView").findOnce().child(1);
+        return className("android.webkit.WebView").findOne(this.options.timeout).child(1);
     };
 
     this.getPower = function (forest) {
@@ -254,7 +255,7 @@ function AntForest(robot, options) {
     };
 
     this.getTakePower = function () {
-        return parseInt(desc("你收取TA").findOnce().parent().child(2).contentDescription);
+        return parseInt(desc("你收取TA").findOne(this.options.timeout).parent().child(2).contentDescription);
     };
 
     this.work = function () {
@@ -267,7 +268,7 @@ function AntForest(robot, options) {
         var startPower = this.getPower(forest);
 
         // 开始收取
-        this.take(bounds);
+        this.take(forest);
         sleep(500);
         var power = this.getPower(this.findForest()) - startPower;
         toastLog("收取了" + power + "g自己的能量");
@@ -298,11 +299,11 @@ function AntForest(robot, options) {
         // 跳过当前屏幕
         this.robot.swipe(WIDTH / 2, HEIGHT, WIDTH / 2, (HEIGHT * 0.1) | 0);
         sleep(1500);
-        toastLog("开始收取好友能量");
+        log("开始收取好友能量");
 
         var nextElements = [];
         var total = 0;
-        total += this.takeOthers(bounds, icon, function () {
+        total += this.takeOthers(icon, function () {
             var selector = className("android.webkit.WebView").scrollable(true);
             if (!selector.exists()) return false;
             
@@ -313,15 +314,15 @@ function AntForest(robot, options) {
             return list.child(num - 1).visibleToUser();
         }, nextElements);
 
-        var more = desc("查看更多好友").find();
-        if (more.length) {
-            log(more[0].bounds());
-            toastLog("查看更多好友");
-            if (this.robot.clickCenter(more[0])) {
+        
+        var more = desc("查看更多好友");
+        if (more.exists()) {
+            log("查看更多好友");
+            if (this.robot.clickCenter(more.findOne(timeout))) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
-                    toastLog("进入好友排行榜成功");
-                    total += this.takeOthers(bounds, icon, function () {
+                    log("进入好友排行榜成功");
+                    total += this.takeOthers(icon, function () {
                         var selector = desc("没有更多了");
                         if (!selector.exists()) return false;
 
@@ -382,12 +383,13 @@ function AntForest(robot, options) {
 
     /**
      * 收取能量
-     * @param bounds
+     * @param forest
      */
-    this.take = function (bounds) {
+    this.take = function (forest) {
         // 等待能量球渲染
         sleep(1500);
-        var filters = descMatches(/^(绿色能量|\d+k?g)$/).boundsInside(bounds.left, bounds.top, bounds.right, bounds.bottom).find();
+        forest = forest || this.findForest();
+        var filters = forest.find(descMatches(/^(绿色能量|\d+k?g)$/));
 
         // 按在父元素中的位置顺序排，总能量为第一个
         filters.sort(function (o1, o2) {
@@ -396,7 +398,7 @@ function AntForest(robot, options) {
 
         // 找到第一个并删除（右上角控件）
         filters.shift();
-        toastLog("找到" + filters.length + "个能量球");
+        log("找到" + filters.length + "个能量球");
 
         for (var i = 0, len = filters.length; i < len; i++) {
             // 原有的click无效
@@ -408,13 +410,12 @@ function AntForest(robot, options) {
 
     /**
      * 收取好友能量
-     * @param bounds
      * @param icon
      * @param isEndFunc
      * @param nextElements
      * @returns {number}
      */
-    this.takeOthers = function (bounds, icon, isEndFunc, nextElements) {
+    this.takeOthers = function (icon, isEndFunc, nextElements) {
         // 9/10滑到1/10屏幕
         var x1 = WIDTH / 2;
         var y1 = (HEIGHT * 0.9) | 0;
@@ -422,7 +423,7 @@ function AntForest(robot, options) {
         var y2 = (HEIGHT * 0.1) | 0;
         var total = 0;
         while(1) {
-            total += this.takeFromImage(bounds, icon);
+            total += this.takeFromImage(icon);
             descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
                 nextElements.push(o);
             });
@@ -432,7 +433,7 @@ function AntForest(robot, options) {
             }
 
             this.robot.swipe(x1, y1, x2, y2);
-            sleep(1500); // 等待滑动动画
+            sleep(500); // 等待滑动动画
         }
 
         return total;
@@ -440,11 +441,10 @@ function AntForest(robot, options) {
 
     /**
      * 找图收取
-     * @param bounds
      * @param icon
      * @returns {number}
      */
-    this.takeFromImage = function (bounds, icon) {
+    this.takeFromImage = function (icon) {
         var point, capture;
         var row_height = HEIGHT / 10;
         var options = {
@@ -472,11 +472,11 @@ function AntForest(robot, options) {
             // 等待好友的森林
             var title = "好友森林";
             if ((title = id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout)) && this.waitForLoading()) {
-                toastLog("进入" + title.text() + "成功");
+                log("进入" + title.text() + "成功");
                 total++;
                 // 收取
                 var takePower = this.getTakePower();
-                this.take(bounds);
+                this.take();
                 sleep(1500);
                 var added = this.getTakePower() - takePower;
                 if ((0 === added) || isNaN(added)) {

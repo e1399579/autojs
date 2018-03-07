@@ -29,13 +29,7 @@ function NougatRobot(max_retry_times) {
     this.max_retry_times = max_retry_times || 10;
 
     this.click = function (x, y) {
-        // 点击可能出现故障，重试
-        for (var times = 0; times < this.max_retry_times; times++) {
-            if (click(x, y)) {
-                return true;
-            }
-        }
-        return false;
+        return click(x, y);
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
