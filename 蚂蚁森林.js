@@ -72,7 +72,7 @@ function start(options) {
     // 子线程监听Home键
     threads.start(function () {
         events.observeKey();
-        events.onKeyDown("home", function (event) {
+        events.onceKeyDown("volume_up", function (event) {
             toastLog("停止脚本");
             engines.stopAll();
             exit();
@@ -135,6 +135,7 @@ function AntForest(robot, options) {
     this.resumeState = function () {
         if (this.state.currentPackage !== this.package) {
             this.robot.back(); // 回到之前运行的程序
+            sleep(1500);
         }
 
         if (!this.state.isRunning) {
@@ -147,7 +148,7 @@ function AntForest(robot, options) {
     };
 
     this.openApp = function () {
-        toastLog("即将收取能量，按Home键停止");
+        toastLog("即将收取能量，按音量上键停止");
 
         launch(this.package);
     };
@@ -208,15 +209,6 @@ function AntForest(robot, options) {
             return false;
         }
 
-        // 对话出现
-        var dialog_x = WIDTH / 2;
-        var dialog_y = 510 * (HEIGHT / 1920);
-        sleep(1000);
-
-        // 点击对话消失
-        this.robot.click(dialog_x, dialog_y);
-        sleep(500);
-
         return true;
     };
 
@@ -259,11 +251,22 @@ function AntForest(robot, options) {
     };
 
     this.work = function () {
+        // 对话出现
+        sleep(1000);
+
         var timeout = this.options.timeout;
         // 蚂蚁森林控件范围
         var forest = this.findForest();
         var bounds = forest.bounds();
         log(bounds);
+        
+        var dialog = forest.child(2);
+        var dialog_x = WIDTH / 2;
+        var dialog_y = dialog ? dialog.bounds().top - 100 : bounds.centerY();
+
+        // 点击对话消失
+        this.robot.click(dialog_x, dialog_y);
+        sleep(500);
 
         var startPower = this.getPower(forest);
 
@@ -290,7 +293,7 @@ function AntForest(robot, options) {
                 beginBtn.click();
             }
         });
-        if (!requestScreenCapture()) {
+        if (!requestScreenCapture(false)) {
             toastLog("请求截图失败");
             engines.stopAll();
             exit();
@@ -405,6 +408,13 @@ function AntForest(robot, options) {
             this.robot.clickCenter(filters[i]);
             log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
             sleep(200);
+        }
+
+        // 误点了按钮则返回
+        var title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOne(this.options.timeout).text();
+        if (-1 === title.indexOf("蚂蚁森林")) {
+            this.robot.back();
+            sleep(1500);
         }
     };
 
