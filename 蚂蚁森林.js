@@ -184,10 +184,12 @@ function AntForest(robot, options) {
             }
         });
 
-        if (!id("com.alipay.android.phone.openplatform:id/saoyisao_tv").findOne(timeout)) {
+        var home = id("com.alipay.android.phone.openplatform:id/tab_description").text("首页").findOne(timeout);
+        if (!home) {
             toastLog("进入支付宝首页失败");
             return false;
         }
+        home.parent().click();
 
         var success = false;
         var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林").findOne(timeout);
@@ -243,11 +245,12 @@ function AntForest(robot, options) {
     };
 
     this.getPower = function (forest) {
-        return parseInt(forest.child(0).contentDescription);
+        return (forest.childCount() > 0) ? parseInt(forest.child(0).contentDescription) : null;
     };
 
     this.getTakePower = function () {
-        return parseInt(desc("你收取TA").findOne(this.options.timeout).parent().child(2).contentDescription);
+        var selector = desc("你收取TA");
+        return selector.exists() ? parseInt(selector.findOnce().parent().child(2).contentDescription) : null;
     };
 
     this.work = function () {
@@ -274,7 +277,7 @@ function AntForest(robot, options) {
         this.take(forest);
         sleep(500);
         var power = this.getPower(this.findForest()) - startPower;
-        toastLog("收取了" + power + "g自己的能量");
+        if (power > 0) toastLog("收取了" + power + "g自己的能量");
 
         var icon = images.read(this.options.takeImg);
         if (null === icon) {
@@ -489,11 +492,7 @@ function AntForest(robot, options) {
                 this.take();
                 sleep(1500);
                 var added = this.getTakePower() - takePower;
-                if ((0 === added) || isNaN(added)) {
-                    sleep(1500);
-                    added = this.getTakePower() - takePower;
-                }
-                toastLog("收取了" + added + "g能量");
+                if (added > 0) toastLog("收取了" + added + "g能量");
             } else {
                 toastLog("进入好友森林失败");
             }
