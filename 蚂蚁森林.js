@@ -33,7 +33,8 @@ var default_config = {
     takeImg: "take.png", // 收取好友能量用到的图片
     pattern_size: 3, // 图案解锁每行点数
     max_retry_times: 10, // 最大失败重试次数
-    timeout: 6000 // 超时时间：毫秒
+    timeout: 6000, // 超时时间：毫秒
+    check_self_timeout: 60 // 检测自己能量时间：秒
 };
 if (typeof config !== "object") {
     config = {};
@@ -275,7 +276,9 @@ function AntForest(robot, options) {
 
         // 开始收取
         this.take(forest);
+        this.takeRemain(forest, this.options.check_self_timeout);
         sleep(500);
+        
         var power = this.getPower(this.findForest()) - startPower;
         if (power > 0) toastLog("收取了" + power + "g自己的能量");
 
@@ -320,11 +323,9 @@ function AntForest(robot, options) {
             return list.child(num - 1).visibleToUser();
         }, nextElements);
 
-        
-        var more = desc("查看更多好友");
-        if (more.exists()) {
-            log("查看更多好友");
-            if (this.robot.clickCenter(more.findOne(timeout))) {
+        var keyword = "查看更多好友";
+        if (desc(keyword).exists()) {
+            if (this.robot.clickCenter(desc(keyword).findOne(timeout))) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
                     log("进入好友排行榜成功");
@@ -397,13 +398,12 @@ function AntForest(robot, options) {
         forest = forest || this.findForest();
         var filters = forest.find(descMatches(/^(绿色能量|\d+k?g)$/));
 
-        // 按在父元素中的位置顺序排，总能量为第一个
         filters.sort(function (o1, o2) {
-            return o1.indexInParent() - o2.indexInParent();
+            return o2.indexInParent() - o1.indexInParent();
         });
 
-        // 找到第一个并删除（右上角控件）
-        filters.shift();
+        // 删除右上角控件
+        filters.pop();
         log("找到" + filters.length + "个能量球");
 
         for (var i = 0, len = filters.length; i < len; i++) {
@@ -422,6 +422,71 @@ function AntForest(robot, options) {
     };
 
     /**
+     * 获取剩余能量球列表
+     * @param {object} forest
+     * @param {number} max_time 
+     */
+    this.getRemainList = function (forest, max_time) {
+        var list = [];
+        forest.find(descMatches(/.*?\d{2}:\d{2}/)).forEach(function (o) {
+            var time = this.getRemainTime(o);
+            if (time > max_time) return;
+            
+            var rect = o.bounds();
+            list.push({
+                time: time,
+                x: rect.centerX(),
+                y: rect.centerY()
+            });
+        }.bind(this));
+
+        return list;
+    };
+
+    /**
+     * 获取剩余时间：秒
+     * @param {object} o 
+     */
+    this.getRemainTime = function (o) {
+        var matches = o.contentDescription.match(/.*?(\d{2}):(\d{2})/);
+        if (!matches) return 0;
+        var hour = matches[1];
+        var minute = matches[2];
+        return (hour * 60 + minute) * 60;
+    };
+
+    this.takeRemain = function (forest, max_time) {
+        if (!max_time) return;
+
+        var list = this.getRemainList(forest, max_time);
+        if (!list.length) return;
+
+        list.sort(function (o1, o2) {
+            return o1.time - o2.time;
+        });
+        var min_time = list[0].time;
+        if (min_time > max_time) return;
+        toastLog("开始检测剩余能量");
+
+        max_time = Math.min(list[list.length - 1].time, max_time);
+        var millisecond = max_time * 1000;
+        var step_time = 100;
+        var i = 0;
+        do {
+            list.forEach(function (o) {
+                this.robot.click(o.x, o.y);
+            }.bind(this));
+
+            i += step_time + 156; // 每次操作有延迟
+
+            sleep(step_time);
+        } while (i <= millisecond);
+        toastLog("检测结束");
+
+        this.take(forest);
+    };
+
+    /**
      * 收取好友能量
      * @param icon
      * @param isEndFunc
@@ -437,7 +502,8 @@ function AntForest(robot, options) {
         var total = 0;
         while(1) {
             total += this.takeFromImage(icon);
-            descMatches(/\d+’/).visibleToUser(true).find().each(function (o) {
+            
+            descMatches(/\d+’/).visibleToUser(true).find().forEach(function (o) {
                 nextElements.push(o);
             });
 
