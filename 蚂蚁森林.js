@@ -29,11 +29,11 @@
 auto(); // 自动打开无障碍服务
 var config = files.isFile("config.js") ? require("config.js") : {};
 var default_config = {
-    password: "1234", // 锁屏密码
+    password: "", // 锁屏密码
     takeImg: "take.png", // 收取好友能量用到的图片
     pattern_size: 3, // 图案解锁每行点数
     max_retry_times: 10, // 最大失败重试次数
-    timeout: 6000, // 超时时间：毫秒
+    timeout: 15000, // 超时时间：毫秒
     check_self_timeout: 60 // 检测自己能量时间：秒
 };
 if (typeof config !== "object") {
@@ -316,15 +316,23 @@ function AntForest(robot, options) {
             var selector = className("android.webkit.WebView").scrollable(true);
             if (!selector.exists()) return false;
             
-            var list = selector.findOne().child(2).child(1);
-            var num = list.childCount();
-            if (num < 1) return true;
+            var rank, num;
+            var childNum = desc("查看更多动态").exists() ? 2 : 1;
+            if ((rank = selector.findOne(timeout)) && (rank.childCount() >= childNum)) {
+                var list = rank.child(childNum).child(1);
+                num = list.childCount();
+                if (num < 1) return true;
+            } else {
+                toastLog("查找排行榜失败");
+                return true;
+            }
             
             return list.child(num - 1).visibleToUser();
         }, nextElements);
 
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
+            log(keyword);
             if (this.robot.clickCenter(desc(keyword).findOne(timeout))) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
@@ -410,7 +418,7 @@ function AntForest(robot, options) {
             // 原有的click无效
             this.robot.clickCenter(filters[i]);
             log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
-            sleep(200);
+            sleep(50);
         }
 
         // 误点了按钮则返回
@@ -553,12 +561,18 @@ function AntForest(robot, options) {
             if ((title = id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout)) && this.waitForLoading()) {
                 log("进入" + title.text() + "成功");
                 total++;
-                // 收取
-                var takePower = this.getTakePower();
-                this.take();
-                sleep(1500);
-                var added = this.getTakePower() - takePower;
-                if (added > 0) toastLog("收取了" + added + "g能量");
+
+                var cover = descMatches(/\d{2}:\d{2}:\d{2}/);
+                if (cover.exists()) {
+                    toastLog("保护罩还剩" + cover.contentDescription + "，忽略");
+                } else {
+                    // 收取
+                    var takePower = this.getTakePower();
+                    this.take();
+                    sleep(1500);
+                    var added = this.getTakePower() - takePower;
+                    if (added > 0) toastLog("收取了" + added + "g能量");
+                }
             } else {
                 toastLog("进入好友森林失败");
             }

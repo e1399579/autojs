@@ -33,7 +33,7 @@ function NougatRobot(max_retry_times) {
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
-        duration = duration || 200;
+        duration = duration || 50;
         return swipe(x1, y1, x2, y2, duration);
     };
 }
