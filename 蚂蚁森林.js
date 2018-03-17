@@ -52,6 +52,48 @@ start(options);
  * @param options
  */
 function start(options) {
+    // 连续运行处理
+    var source = engines.myEngine().getTag("source").toString();
+    //storages.remove(source);exit();
+    var stateStorage = storages.create(source);
+    var running = stateStorage.get("running", []);
+    var no = running.length ? running[running.length - 1] + 1 : 1;
+    running.push(no);
+    log(running);
+    stateStorage.put("running", running);
+    // 子线程监听音量上键
+    threads.start(function () {
+        events.observeKey();
+        events.onceKeyDown("volume_up", function (event) {
+            storages.remove(source);
+            toastLog("停止脚本");
+            engines.stopAll();
+            exit();
+        });
+    });
+    // 监听退出事件
+    events.on("exit", function () {
+        running = stateStorage.get("running", []);
+        var index = running.indexOf(no);
+        running.splice(index, 1);
+        log(running);
+        if (!running.length) {
+            storages.remove(source);
+        } else {
+            stateStorage.put("running", running);
+        }
+    });
+    while (1) {
+        var waiting = stateStorage.get("running").indexOf(no);
+        if (waiting > 0) {
+            log("任务" + no + "排队中，前面有" + waiting + "个任务");
+            sleep(15000);
+        } else {
+            log("任务" + no + "开始运行");
+            break;
+        }
+    }
+
     var isScreenOn = device.isScreenOn(); // 屏幕是否点亮
     if (!isScreenOn) {
         log("唤醒");
@@ -70,15 +112,6 @@ function start(options) {
         antForest.saveState(isScreenOn);
         antForest.openApp();
     });
-    // 子线程监听Home键
-    threads.start(function () {
-        events.observeKey();
-        events.onceKeyDown("volume_up", function (event) {
-            toastLog("停止脚本");
-            engines.stopAll();
-            exit();
-        });
-    });
 
     if (files.exists("Secure.js")) {
         var Secure = require("Secure.js");
@@ -91,7 +124,7 @@ function start(options) {
     antForest.resumeState();
 
     // 退出全部线程
-    engines.stopAll();
+    //engines.stopAll();
     exit();
 }
 
@@ -263,7 +296,7 @@ function AntForest(robot, options) {
         var forest = this.findForest();
         var bounds = forest.bounds();
         log(bounds);
-        
+
         var dialog = forest.child(2);
         var dialog_x = WIDTH / 2;
         var dialog_y = dialog ? dialog.bounds().top - 100 : bounds.centerY();
@@ -278,7 +311,7 @@ function AntForest(robot, options) {
         this.take(forest);
         this.takeRemain(forest, this.options.check_self_timeout);
         sleep(500);
-        
+
         var power = this.getPower(this.findForest()) - startPower;
         if (power > 0) toastLog("收取了" + power + "g自己的能量");
 
@@ -310,12 +343,13 @@ function AntForest(robot, options) {
         sleep(1500);
         log("开始收取好友能量");
 
-        var nextElements = [];
+        // 统计下次时间
+        var minuteList = [];
         var total = 0;
         total += this.takeOthers(icon, function () {
             var selector = className("android.webkit.WebView").scrollable(true);
             if (!selector.exists()) return false;
-            
+
             var rank, num;
             var childNum = desc("查看更多动态").exists() ? 2 : 1;
             if ((rank = selector.findOne(timeout)) && (rank.childCount() >= childNum)) {
@@ -326,9 +360,9 @@ function AntForest(robot, options) {
                 toastLog("查找排行榜失败");
                 return true;
             }
-            
+
             return list.child(num - 1).visibleToUser();
-        }, nextElements);
+        }, minuteList);
 
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
@@ -342,7 +376,7 @@ function AntForest(robot, options) {
                         if (!selector.exists()) return false;
 
                         return selector.findOne().visibleToUser();
-                    }, nextElements);
+                    }, minuteList);
                     this.robot.back();
                     sleep(1500);
                 } else {
@@ -363,31 +397,33 @@ function AntForest(robot, options) {
         this.robot.back();
         toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
 
-        // 统计下次时间
-        var minuteList = [];
-        nextElements.forEach(function (o) {
-            minuteList.push(parseInt(o.contentDescription));
-        });
-        nextElements = []; // 释放内存
+        // 统计部分，可以删除
+        var date = new Date();
+        var timestamp = date.getTime();
+
+        // 减掉运行的时间
+        for (var i = 0, len = minuteList.length; i < len; i++) {
+            var diff_time = timestamp - minuteList[i].timestamp;
+            minuteList[i].minute -= diff_time / 1000 / 60;
+        }
+
         // 排序
         minuteList.sort(function (m1, m2) {
-            return m1 - m2;
+            return m1.minute - m2.minute;
         });
         // 去掉重复的
         for (var i = 1, len = minuteList.length; i < len; i++) {
             // 相差1分钟以内认为是同一元素
-            if ((minuteList[i] - minuteList[i - 1]) <= 1) {
+            if ((minuteList[i].minute - minuteList[i - 1].minute) <= 1) {
                 minuteList.splice(i--, 1);
                 len--;
             }
         }
 
-        var date = new Date();
-        var timestamp = date.getTime();
         var timeList = [];
         for (var i = 0, len = minuteList.length; i < len; i++) {
-            var minute = minuteList[i];
-            var now = timestamp + 60 * minute * 1000;
+            var minute = minuteList[i].minute;
+            var now = timestamp + Math.round(60 * minute * 1000);
             date.setTime(now);
             timeList.push(date.getHours() + ":" + date.getMinutes());
         }
@@ -432,14 +468,14 @@ function AntForest(robot, options) {
     /**
      * 获取剩余能量球列表
      * @param {object} forest
-     * @param {number} max_time 
+     * @param {number} max_time
      */
     this.getRemainList = function (forest, max_time) {
         var list = [];
         forest.find(descMatches(/.*?\d{2}:\d{2}/)).forEach(function (o) {
             var time = this.getRemainTime(o);
             if (time > max_time) return;
-            
+
             var rect = o.bounds();
             list.push({
                 time: time,
@@ -453,7 +489,7 @@ function AntForest(robot, options) {
 
     /**
      * 获取剩余时间：秒
-     * @param {object} o 
+     * @param {object} o
      */
     this.getRemainTime = function (o) {
         var matches = o.contentDescription.match(/.*?(\d{2}):(\d{2})/);
@@ -498,21 +534,24 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param icon
      * @param isEndFunc
-     * @param nextElements
+     * @param minuteList
      * @returns {number}
      */
-    this.takeOthers = function (icon, isEndFunc, nextElements) {
+    this.takeOthers = function (icon, isEndFunc, minuteList) {
         // 9/10滑到1/10屏幕
         var x1 = WIDTH / 2;
         var y1 = (HEIGHT * 0.9) | 0;
         var x2 = WIDTH / 2;
         var y2 = (HEIGHT * 0.1) | 0;
         var total = 0;
-        while(1) {
+        while (1) {
             total += this.takeFromImage(icon);
-            
+
             descMatches(/\d+’/).visibleToUser(true).find().forEach(function (o) {
-                nextElements.push(o);
+                minuteList.push({
+                    timestamp: (new Date()).getTime(),
+                    minute: parseInt(o.contentDescription)
+                });
             });
 
             if (isEndFunc()) {
@@ -564,7 +603,7 @@ function AntForest(robot, options) {
 
                 var cover = descMatches(/\d{2}:\d{2}:\d{2}/);
                 if (cover.exists()) {
-                    toastLog("保护罩还剩" + cover.contentDescription + "，忽略");
+                    toastLog("保护罩还剩" + cover.findOnce().contentDescription + "，忽略");
                 } else {
                     // 收取
                     var takePower = this.getTakePower();
