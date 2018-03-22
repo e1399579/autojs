@@ -53,7 +53,7 @@ start(options);
  */
 function start(options) {
     // 连续运行处理
-    var source = engines.myEngine().getTag("source").toString();
+    var source = "antForest";
     //storages.remove(source);exit();
     var stateStorage = storages.create(source);
     var running = stateStorage.get("running", []);
@@ -364,6 +364,7 @@ function AntForest(robot, options) {
             return list.child(num - 1).visibleToUser();
         }, minuteList);
 
+        this.robot.swipe(WIDTH / 2, HEIGHT - 100, WIDTH / 2, 100); // 兼容部分手机没有滑到底部问题
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
             log(keyword);
@@ -438,7 +439,7 @@ function AntForest(robot, options) {
      */
     this.take = function (forest) {
         // 等待能量球渲染
-        sleep(1500);
+        //sleep(1500);
         forest = forest || this.findForest();
         var filters = forest.find(descMatches(/^(绿色能量|\d+k?g)$/));
 
@@ -458,8 +459,7 @@ function AntForest(robot, options) {
         }
 
         // 误点了按钮则返回
-        var title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOne(this.options.timeout).text();
-        if (-1 === title.indexOf("蚂蚁森林")) {
+        if (id("com.alipay.mobile.ui:id/title_bar_title").exists()) {
             this.robot.back();
             sleep(1500);
         }
