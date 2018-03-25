@@ -572,7 +572,7 @@ function AntForest(robot, options) {
      * @returns {number}
      */
     this.takeFromImage = function (icon) {
-        var poin;
+        var point;
         var row_height = HEIGHT / 10;
         var options = {
             region: [WIDTH - row_height, row_height],
@@ -580,6 +580,8 @@ function AntForest(robot, options) {
         };
         var total = 0;
         var times = 0;
+        var x = WIDTH / 2;
+        var offset = icon.getHeight() / 2;
         while (times < this.options.max_retry_times) {
             this.capture = captureScreen();
             if (null === this.capture) {
@@ -592,9 +594,10 @@ function AntForest(robot, options) {
             if (null === point) {
                 break;
             }
-            var x = WIDTH / 2;
-            var y = Math.min(HEIGHT, point.y + row_height / 2); // 防止点到屏幕下面
-            this.robot.click(x, y); // 点击一行中间
+            
+            var y = point.y + offset;
+            this.robot.click(x, y);
+            sleep(1000); // 在森林中查找控件比列表中查找快
 
             // 等待好友的森林
             var title = "好友森林";

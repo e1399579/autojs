@@ -8,10 +8,20 @@ function Secure(robot, max_retry_times) {
     this.robot = robot;
     this.max_retry_times = max_retry_times || 10;
     this.km = context.getSystemService(context.KEYGUARD_SERVICE);
+    this.secure = (function () {
+        var secure;
 
-    this.hasLayer = function () {
-        return id("com.android.systemui:id/preview_container").visibleToUser(true).exists(); // 是否有上滑图层
-    };
+        switch (true) {
+            case !isNaN(parseInt(shell("getprop ro.miui.ui.version.code").result)):
+                secure = new MIUISecure(this);
+                break;
+            default:
+                secure = new NativeSecure(this);
+                break;
+        }
+
+        return secure;
+    }.bind(this))();
 
     this.openLock = function (password, pattern_size) {
         var isLocked = this.km.inKeyguardRestrictedInputMode(); // 是否已经上锁
@@ -23,7 +33,7 @@ function Secure(robot, max_retry_times) {
         });
 
         var i = 0;
-        while (this.hasLayer()) {
+        while (this.secure.hasLayer()) {
             if (i >= this.max_retry_times) {
                 toastLog("打开上滑图层失败");
                 return this.failed();
@@ -33,7 +43,7 @@ function Secure(robot, max_retry_times) {
             i++;
         }
 
-        if (!isLocked) return true;
+        if (!(isLocked && isSecure)) return true;
         log("解锁");
         for (var i = 0; i < this.max_retry_times; i++) {
             if (this.unlock(password, pattern_size)) {
@@ -68,35 +78,10 @@ function Secure(robot, max_retry_times) {
             throw new Error("密码至少4位");
         }
 
-        if (id("com.android.systemui:id/lockPatternView").exists()) {
-            return this.unlockPattern(password, len, pattern_size);
-        } else if (id("com.android.systemui:id/passwordEntry").exists()) {
-            return this.unlockPassword(password);
-        } else if (id("com.android.systemui:id/pinEntry").exists()) {
-            return this.unlockKey(password, len);
-        } else {
-            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
-            return this.failed();
-        }
+        return this.secure.unlock(password, pattern_size);
     };
 
-    this.unlockKey = function (password, len) {
-        for (var j = 0; j < len; j++) {
-            var key_id = "com.android.systemui:id/key" + password[j];
-            if (!id(key_id).exists()) {
-                return false;
-            }
-            id(key_id).findOne(1000).click();
-        }
-        if (id("com.android.systemui:id/key_enter").exists()) {
-            id("com.android.systemui:id/key_enter").findOne(1000).click();
-        }
-
-        return this.checkUnlock();
-    };
-
-    this.unlockPattern = function (password, len, pattern_size) {
-        var pattern = id("com.android.systemui:id/lockPatternView").findOne(1000);
+    this.gestureUnlock = function (pattern, password, len, pattern_size) {
         var rect = pattern.bounds();
         // 使用坐标查找按键
         var oX = rect.left, oY = rect.top; // 第一个点位置
@@ -142,10 +127,104 @@ function Secure(robot, max_retry_times) {
         sleep(1500);
         return this.checkUnlock();
     };
+}
+
+function NativeSecure(secure) {
+    this.__proto__ = secure;
+
+    this.hasLayer = function () {
+        return id("com.android.systemui:id/preview_container").visibleToUser(true).exists(); // 是否有上滑图层
+    };
+
+    this.unlock = function (password, pattern_size) {
+        var len = password.length;
+
+        if (id("com.android.systemui:id/lockPatternView").exists()) {
+            return this.unlockPattern(password, len, pattern_size);
+        } else if (id("com.android.systemui:id/passwordEntry").exists()) {
+            return this.unlockPassword(password);
+        } else if (id("com.android.systemui:id/pinEntry").exists()) {
+            return this.unlockKey(password, len);
+        } else {
+            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
+            return this.failed();
+        }
+    };
+
+    this.unlockKey = function (password, len) {
+        for (var j = 0; j < len; j++) {
+            var key_id = "com.android.systemui:id/key" + password[j];
+            if (!id(key_id).exists()) {
+                return false;
+            }
+            id(key_id).findOne(1000).click();
+        }
+        if (id("com.android.systemui:id/key_enter").exists()) {
+            id("com.android.systemui:id/key_enter").findOne(1000).click();
+        }
+
+        return this.checkUnlock();
+    };
+
+    this.unlockPattern = function (password, len, pattern_size) {
+        var pattern = id("com.android.systemui:id/lockPatternView").findOne(1000);
+        return this.gestureUnlock(pattern, password, len, pattern_size);
+    };
 
     this.checkUnlock = function () {
         sleep(1500); // 等待动画
         if (id("android:id/message").textContains("重试").exists()) {
+            toastLog("密码错误");
+            return this.failed();
+        }
+
+        return !this.km.inKeyguardRestrictedInputMode();
+    };
+}
+
+function MIUISecure(secure) {
+    this.__proto__ = secure;
+
+    this.hasLayer = function () {
+        return id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").visibleToUser(true).exists();
+    };
+
+    this.unlock = function (password, pattern_size) {
+        var len = password.length;
+        
+        if (id("com.android.keyguard:id/lockPattern").exists()) {
+            return this.unlockPattern(password, len, pattern_size);
+        } else if (id("com.android.keyguard:id/miui_mixed_password_input_field").exists()) {
+            return this.unlockPassword(password);
+        } else if (id("com.android.keyguard:id/numeric_inputview").exists()) {
+            return this.unlockKey(password, len);
+        } else {
+            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
+            return this.failed();
+        }
+    };
+
+    this.unlockKey = function (password, len) {
+        for (var j = 0; j < len; j++) {
+            var btn = id("com.android.keyguard:id/numeric_inputview").findOne(1000).findOne(text(password[j]));
+            if (btn) {
+                this.robot.clickCenter(btn);
+            } else {
+                return false;
+            }
+        }
+
+        return this.checkUnlock();
+    };
+
+    this.unlockPattern = function (password, len, pattern_size) {
+        var pattern = id("com.android.keyguard:id/lockPattern").findOne(1000);
+        return this.gestureUnlock(pattern, password, len, pattern_size);
+    };
+
+    this.checkUnlock = function () {
+        sleep(1500); // 等待动画
+        if (id("com.android.keyguard:id/phone_locked_textview").exists()) {
             toastLog("密码错误");
             return this.failed();
         }
