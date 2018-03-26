@@ -146,8 +146,11 @@ function NativeSecure(secure) {
         } else if (id("com.android.systemui:id/pinEntry").exists()) {
             return this.unlockKey(password, len);
         } else {
-            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
-            return this.failed();
+            /*toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
+            return this.failed();*/
+            toastLog("尝试PIN解锁");
+            this.openLayer();
+            return this.unlockKey(password, len);
         }
     };
 
