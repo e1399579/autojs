@@ -45,6 +45,11 @@ function showSettings(options) {
                     <input id="check_self_timeout" w="150" h="40" />
                     <text w="*" h="*" gravity="left|center" size="16">s</text>
                 </linear>
+                <linear>
+                    <text w="96" h="*" gravity="right|center" size="16">排行最多滑动</text>
+                    <input id="max_swipe_times" w="150" h="40" />
+                    <text w="*" h="*" gravity="left|center" size="16">次</text>
+                </linear>
                 <linear gravity="center">
                     <button id="submit" text="确定" />
                     <button id="reset" text="重置" />

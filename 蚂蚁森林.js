@@ -37,8 +37,9 @@ var default_config = {
     takeImg: "take.png", // 收取好友能量用到的图片
     pattern_size: 3, // 图案解锁每行点数
     max_retry_times: 10, // 最大失败重试次数
-    timeout: 15000, // 超时时间：毫秒
-    check_self_timeout: 60 // 检测自己能量时间：秒
+    timeout: 12000, // 超时时间：毫秒
+    check_self_timeout: 60, // 检测自己能量时间：秒
+    max_swipe_times: 100 // 好友列表最多滑动次数
 };
 if (typeof config !== "object") {
     config = {};
@@ -49,6 +50,7 @@ var options = Object.assign(default_config, config); // 用户配置合并
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
 
+setScreenMetrics(WIDTH, HEIGHT);
 start(options);
 
 /**
@@ -244,7 +246,7 @@ function AntForest(robot, options) {
         }
 
         // 等待加载
-        if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("蚂蚁森林").findOne(timeout) && this.waitForLoading()) {
+        if (this.waitForLoading()) {
             log("进入蚂蚁森林成功");
         } else {
             toastLog("进入蚂蚁森林失败");
@@ -256,11 +258,11 @@ function AntForest(robot, options) {
 
     this.waitForLoading = function () {
         var timeout = this.options.timeout;
-        var waitTime = 200;
+        var waitTime = 1000;
         for (var i = 0; i < timeout; i += waitTime) {
-            var webView = className("android.webkit.WebView").findOne(timeout);
+            var webView = className("android.webkit.WebView").scrollable(true).findOne(timeout);
             if (!webView) return false;
-            if (webView.childCount() < 2) {
+            if (!webView.child(1)) {
                 sleep(waitTime);
                 continue;
             }
@@ -281,21 +283,16 @@ function AntForest(robot, options) {
     };
 
     this.findForest = function () {
-        return className("android.webkit.WebView").findOne(this.options.timeout).child(1);
+        return descMatches(/^.{2}:.{2}:.{2}$/).findOne(this.options.timeout).parent();
     };
 
     this.getPower = function (forest) {
         return (forest && forest.childCount() > 0) ? parseInt(forest.child(0).contentDescription) : null;
     };
 
-    this.getTakePower = function () {
-        var selector = desc("你收取TA");
-        return selector.exists() ? parseInt(selector.findOnce().parent().child(2).contentDescription) : null;
-    };
-
     this.work = function () {
         // 对话出现
-        sleep(1000);
+        sleep(500);
 
         var timeout = this.options.timeout;
         // 蚂蚁森林控件范围
@@ -305,7 +302,7 @@ function AntForest(robot, options) {
 
         var dialog = forest.child(2);
         var dialog_x = WIDTH / 2;
-        var dialog_y = dialog ? dialog.bounds().top - 100 : bounds.centerY();
+        var dialog_y = dialog ? dialog.bounds().centerY() : bounds.centerY();
 
         // 点击对话消失
         this.robot.click(dialog_x, dialog_y);
@@ -331,9 +328,9 @@ function AntForest(robot, options) {
         threads.start(function () {
             var remember;
             var beginBtn;
-            /*if (remember = id("com.android.systemui:id/remember").checkable(true).findOne(timeout)) {
+            if (remember = id("com.android.systemui:id/remember").checkable(true).findOne(timeout)) {
                 remember.click();
-            }*/
+            }
             if (beginBtn = classNameContains("Button").textContains("立即开始").findOne(timeout)) {
                 beginBtn.click();
             }
@@ -345,14 +342,14 @@ function AntForest(robot, options) {
         }
 
         // 跳过当前屏幕
-        this.robot.swipe(WIDTH / 2, HEIGHT, WIDTH / 2, (HEIGHT * 0.1) | 0);
-        sleep(1500);
+        var y = Math.min(HEIGHT, 1820);
+        this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
+        sleep(500);
         log("开始收取好友能量");
-
         
         var total = 0;
         total += this.takeOthers(icon, function () {
-            var selector = className("android.webkit.WebView").scrollable(true);
+            var selector = className("android.webkit.WebView");
             if (!selector.exists()) return false;
 
             var rank, num;
@@ -380,18 +377,27 @@ function AntForest(robot, options) {
                 // 等待更多列表刷新
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
                     log("进入好友排行榜成功");
+                    // 跳过第一屏
+                    var y = Math.min(HEIGHT, 1820);
+                    this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
+                    sleep(500);
+
+                    var page = 0;
                     total += this.takeOthers(icon, function () {
                         /*var selector = desc("没有更多了");
                         if (!selector.exists()) return false;
 
                         return selector.findOne().visibleToUser();*/
-                        return findColorEquals(this.capture, "#30BF6C", WIDTH - 300, HEIGHT - 300, 200, 200) !== null;
+                        page++;
+                        return (page > this.options.max_swipe_times) 
+                        || (findColorEquals(this.capture, "#30BF6C", WIDTH - 300, 0, 200, HEIGHT) !== null);
                     }.bind(this));
 
                     minuteList = this.statisticsNextTime();
 
                     this.robot.back();
-                    sleep(1500);
+                    sleep(2000);
+                    this.waitForLoading();
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
@@ -399,16 +405,14 @@ function AntForest(robot, options) {
                 toastLog("进入好友排行榜失败");
             }
         }
-
+        
         var endPower = this.getPower(this.findForest());
-        if (isNaN(endPower)) {
-            sleep(1500);
-            endPower = this.getPower(this.findForest());
-        }
+        
         var added = endPower - startPower;
 
         this.robot.back();
         toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
+        sleep(1500);
 
         // 统计部分，可以删除
         var date = new Date();
@@ -452,8 +456,6 @@ function AntForest(robot, options) {
      * @param forest
      */
     this.take = function (forest) {
-        // 等待能量球渲染
-        //sleep(1500);
         forest = forest || this.findForest();
         var filters = forest.find(descMatches(/^(绿色能量|\d+k?g)$/));
 
@@ -469,7 +471,7 @@ function AntForest(robot, options) {
             // 原有的click无效
             this.robot.clickCenter(filters[i]);
             log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
-            sleep(50);
+            sleep(100);
         }
 
         // 误点了按钮则返回
@@ -508,8 +510,8 @@ function AntForest(robot, options) {
     this.getRemainTime = function (o) {
         var matches = o.contentDescription.match(/.*?(\d{2}):(\d{2})/);
         if (!matches) return 0;
-        var hour = matches[1];
-        var minute = matches[2];
+        var hour = parseInt(matches[1]);
+        var minute = parseInt(matches[2]);
         return (hour * 60 + minute) * 60;
     };
 
@@ -524,24 +526,22 @@ function AntForest(robot, options) {
         });
         var min_time = list[0].time;
         if (min_time > max_time) return;
+        
         toastLog("开始检测剩余能量");
 
         max_time = Math.min(list[list.length - 1].time, max_time);
         var millisecond = max_time * 1000;
         var step_time = 100;
-        var i = 0;
-        do {
+        // 每次操作有延迟156ms
+        for (var i = 0;i <= millisecond;i += step_time + 156) {
             list.forEach(function (o) {
                 this.robot.click(o.x, o.y);
             }.bind(this));
 
-            i += step_time + 156; // 每次操作有延迟
-
             sleep(step_time);
-        } while (i <= millisecond);
+        }
+        
         toastLog("检测结束");
-
-        this.take(forest);
     };
 
     /**
@@ -551,11 +551,11 @@ function AntForest(robot, options) {
      * @returns {number}
      */
     this.takeOthers = function (icon, isEndFunc) {
-        // 9/10滑到1/10屏幕
+        var row = (192 * (HEIGHT / 1920)) | 0;
         var x1 = WIDTH / 2;
-        var y1 = (HEIGHT * 0.9) | 0;
+        var y1 = HEIGHT - row;
         var x2 = WIDTH / 2;
-        var y2 = (HEIGHT * 0.1) | 0;
+        var y2 = row;
         var total = 0;
         while (1) {
             total += this.takeFromImage(icon);
@@ -602,11 +602,11 @@ function AntForest(robot, options) {
             
             var y = point.y + offset;
             this.robot.click(x, y);
-            sleep(1000); // 在森林中查找控件比列表中查找快
 
             // 等待好友的森林
             var title = "好友森林";
-            if ((title = id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+蚂蚁森林/).findOne(this.options.timeout)) && this.waitForLoading()) {
+            if (this.waitForLoading()) {
+                title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOnce();
                 log("进入" + title.text() + "成功");
                 total++;
 
@@ -615,11 +615,7 @@ function AntForest(robot, options) {
                     toastLog("保护罩还剩" + cover.findOnce().contentDescription + "，忽略");
                 } else {
                     // 收取
-                    var takePower = this.getTakePower();
                     this.take();
-                    sleep(1500);
-                    var added = this.getTakePower() - takePower;
-                    if (added > 0) toastLog("收取了" + added + "g能量");
                 }
             } else {
                 toastLog("进入好友森林失败");
@@ -627,11 +623,7 @@ function AntForest(robot, options) {
 
             // 返回好友列表
             this.robot.back();
-            sleep(1500);
-
-            // 等待好友列表刷新
-            id("com.alipay.mobile.nebula:id/h5_tv_title").textMatches(/.+/).findOne(this.options.timeout);
-            this.waitForLoading(); // 等待界面渲染及加载
+            sleep(3000);
         }
 
         return total;

@@ -8,15 +8,21 @@ function LollipopRobot(max_retry_times) {
 
     this.click = function (x, y) {
         Tap(x, y);
-        sleep(10);
+        sleep(100);
         return true;
     };
 
     this.swipe = function (x1, y1, x2, y2, duration) {
-        duration = duration || 1000;
-        Swipe(x1, y1, x2, y2, duration);
+        duration = duration || 50;
+        var metrics = duration > 500 ? 1 : 6.5;
+        var distance = y1 - y2;
+        var centerY = (y1 - distance / 2) | 0;
+        var new_distance = (distance / metrics) | 0;
+        var new_y1 = centerY + new_distance / 2;
+        var new_y2 = centerY - new_distance / 2;
+        Swipe(x1, new_y1, x2, new_y2, duration);
         // 滑动之后有动画
-        sleep(1500);
+        sleep(1200);
         return true;
     };
 }
