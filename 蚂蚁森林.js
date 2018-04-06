@@ -129,8 +129,7 @@ function start(options) {
     antForest.work();
     antForest.resumeState();
 
-    // 退出全部线程
-    //engines.stopAll();
+    // 退出
     exit();
 }
 
@@ -212,7 +211,6 @@ function AntForest(robot, options) {
         } while (times < this.options.max_retry_times);
 
         toastLog("运行失败");
-        engines.stopAll();
         exit();
     };
 
@@ -306,7 +304,7 @@ function AntForest(robot, options) {
 
         var dialog = forest.child(2);
         var dialog_x = WIDTH / 2;
-        var dialog_y = dialog ? dialog.bounds().centerY() : bounds.centerY();
+        var dialog_y = dialog ? dialog.bounds().top - 100 : bounds.centerY();
 
         // 点击对话消失
         this.robot.click(dialog_x, dialog_y);
@@ -326,7 +324,6 @@ function AntForest(robot, options) {
         var icon = images.read(this.options.takeImg);
         if (null === icon) {
             toastLog("缺少图片文件，请仔细查看使用方法的第一条！！！");
-            engines.stopAll();
             exit();
         }
         // 截图权限申请
@@ -342,12 +339,11 @@ function AntForest(robot, options) {
         });
         if (!requestScreenCapture(false)) {
             toastLog("请求截图失败");
-            engines.stopAll();
             exit();
         }
 
         // 跳过当前屏幕
-        var y = Math.min(HEIGHT, 1820);
+        var y = Math.min(HEIGHT, 1720);
         this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
         sleep(500);
         log("开始收取好友能量");
@@ -374,7 +370,7 @@ function AntForest(robot, options) {
         // 统计下次时间
         var minuteList = this.statisticsNextTime();
 
-        this.robot.swipe(WIDTH / 2, HEIGHT - 100, WIDTH / 2, 100); // 兼容部分手机没有滑到底部问题
+        this.robot.swipe(WIDTH / 2, HEIGHT - 200, WIDTH / 2, 0); // 兼容部分手机没有滑到底部问题
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
             log(keyword);
@@ -383,7 +379,7 @@ function AntForest(robot, options) {
                 if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout) && this.waitForLoading()) {
                     log("进入好友排行榜成功");
                     // 跳过第一屏
-                    var y = Math.min(HEIGHT, 1820);
+                    var y = Math.min(HEIGHT, 1720);
                     this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
                     sleep(500);
 
@@ -632,6 +628,6 @@ function AntForest(robot, options) {
         }
 
         return total;
-    }
+    };
 }
 
