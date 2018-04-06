@@ -8,7 +8,7 @@ function LollipopRobot(max_retry_times) {
 
     this.click = function (x, y) {
         Tap(x, y);
-        sleep(100);
+        sleep(500);
         return true;
     };
 

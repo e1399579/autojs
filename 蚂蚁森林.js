@@ -258,7 +258,9 @@ function AntForest(robot, options) {
 
     this.waitForLoading = function () {
         var timeout = this.options.timeout;
-        var waitTime = 1000;
+        var waitTime = 200;
+        var min_height = HEIGHT / 2;
+        sleep(1000);
         for (var i = 0; i < timeout; i += waitTime) {
             var webView = className("android.webkit.WebView").scrollable(true).findOne(timeout);
             if (!webView) return false;
@@ -267,23 +269,25 @@ function AntForest(robot, options) {
                 continue;
             }
 
-            var elementCount = webView.child(1).childCount();
-            if (elementCount >= 3) {
+            var container = webView.child(1);
+            if (container.bounds().height() > min_height) {
                 sleep(1000); // 等待界面渲染
                 return true; // 加载成功
-            } else if (0 === elementCount) {
-                sleep(waitTime);
-                continue; // 加载中
-            } else {
+            }
+
+            var elementCount = container.childCount();
+            if (1 === elementCount) {
                 return false; // 失败
             }
+
+            sleep(waitTime); // 加载中
         }
 
         return false;
     };
 
     this.findForest = function () {
-        return descMatches(/^.{2}:.{2}:.{2}$/).findOne(this.options.timeout).parent();
+        return className("android.webkit.WebView").findOne(this.options.timeout).child(1);
     };
 
     this.getPower = function (forest) {
@@ -309,6 +313,7 @@ function AntForest(robot, options) {
         sleep(500);
 
         var startPower = this.getPower(forest);
+        log("当前能量：" + startPower);
 
         // 开始收取
         this.take(forest);
