@@ -34,15 +34,15 @@ function oneScreenAdd() {
         if (friend = text("加好友").findOnce()) {
             friend.click();
             sleep(2000);
-    
-            if (text("朋友验证").exists()) {
-                Back();
-                sleep(1500);
-                Back();
-                sleep(1500);
-            } else {
+
+            if (text("发消息").exists()) {
                 total++;
                 toastLog("加好友成功");
+            } else if (text("朋友验证").exists()) {
+                Back();
+                sleep(1500);
+                Back();
+                sleep(1500);
             }
         }
         Back();
