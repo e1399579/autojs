@@ -49,6 +49,7 @@ var options = Object.assign(default_config, config); // 用户配置合并
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
+const IS_ROOT = files.exists("/system/xbin/su") || files.exists("/system/bin/su");
 
 setScreenMetrics(WIDTH, HEIGHT);
 start(options);
@@ -168,14 +169,14 @@ function AntForest(robot, options) {
     this.saveState = function (isScreenOn) {
         this.state.isScreenOn = isScreenOn;
         this.state.currentPackage = currentPackage(); // 当前运行的程序
-        this.state.isRunning = parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result); // 支付宝是否运行
+        this.state.isRunning = IS_ROOT ? parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result) : 0; // 支付宝是否运行
         this.state.version = context.getPackageManager().getPackageInfo(this.package, 0).versionName;
         log(this.state);
     };
 
     this.resumeState = function () {
         if (this.state.currentPackage !== this.package) {
-            this.robot.back(); // 回到之前运行的程序
+            this.back(); // 回到之前运行的程序
             sleep(1500);
         }
 
@@ -205,7 +206,7 @@ function AntForest(robot, options) {
                 return;
             } else {
                 times++;
-                this.closeApp();
+                this.back();
                 this.openApp();
             }
         } while (times < this.options.max_retry_times);
@@ -350,13 +351,13 @@ function AntForest(robot, options) {
         
         var total = 0;
         total += this.takeOthers(icon, function () {
-            var selector = className("android.webkit.WebView");
-            if (!selector.exists()) return false;
+            var webView = className("android.webkit.WebView").findOnce();
+            if (!webView) return false;
 
-            var rank, num;
+            var num;
             var childNum = desc("查看更多动态").exists() ? 2 : 1;
-            if ((rank = selector.findOne(timeout)) && (rank.childCount() >= childNum)) {
-                var list = rank.child(childNum).child(1);
+            if ((webView.childCount() >= childNum)) {
+                var list = webView.child(childNum).child(1);
                 num = list.childCount();
                 if (num < 1) return true;
             } else {
@@ -396,7 +397,7 @@ function AntForest(robot, options) {
 
                     minuteList = this.statisticsNextTime();
 
-                    this.robot.back();
+                    this.back();
                     sleep(2000);
                     this.waitForLoading();
                 } else {
@@ -411,7 +412,7 @@ function AntForest(robot, options) {
         
         var added = endPower - startPower;
 
-        this.robot.back();
+        this.back();
         toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
         sleep(1500);
 
@@ -477,7 +478,7 @@ function AntForest(robot, options) {
 
         // 误点了按钮则返回
         if (id("com.alipay.mobile.ui:id/title_bar_title").exists()) {
-            this.robot.back();
+            this.back();
             sleep(1500);
         }
     };
@@ -611,9 +612,9 @@ function AntForest(robot, options) {
                 log("进入" + title.text() + "成功");
                 total++;
 
-                var cover = descMatches(/\d{2}:\d{2}:\d{2}/);
-                if (cover.exists()) {
-                    toastLog("保护罩还剩" + cover.findOnce().contentDescription + "，忽略");
+                var cover;
+                if (cover = descMatches(/\d{2}:\d{2}:\d{2}/).findOnce()) {
+                    toastLog("保护罩还剩" + cover.contentDescription + "，忽略");
                 } else {
                     // 收取
                     this.take();
@@ -623,11 +624,19 @@ function AntForest(robot, options) {
             }
 
             // 返回好友列表
-            this.robot.back();
+            this.back();
             sleep(3000);
         }
 
         return total;
+    };
+
+    this.back = function () {
+        if (IS_ROOT) {
+            this.robot.back();
+        } else {
+            back();
+        }
     };
 }
 

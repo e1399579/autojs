@@ -121,8 +121,13 @@ function Secure(robot, max_retry_times) {
         if (typeof password !== "string") {
             password = password.join("");
         }
-        Text(password); // 输入密码
-        KeyCode("KEYCODE_ENTER"); // 按Enter
+        setText(0, password); // 输入密码
+        var confirm;
+        if (confirm = text("确认").findOnce()) {
+            confirm.click();
+        } else {
+            KeyCode("KEYCODE_ENTER"); // 按Enter
+        }
 
         sleep(1500);
         return this.checkUnlock();
@@ -189,7 +194,7 @@ function MIUISecure(secure) {
     this.__proto__ = secure;
 
     this.hasLayer = function () {
-        return id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").visibleToUser(true).exists();
+        return id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists();
     };
 
     this.unlock = function (password, pattern_size) {

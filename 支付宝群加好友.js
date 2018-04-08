@@ -39,13 +39,13 @@ function oneScreenAdd() {
                 total++;
                 toastLog("加好友成功");
             } else if (text("朋友验证").exists()) {
-                Back();
+                back();
                 sleep(1500);
-                Back();
+                back();
                 sleep(1500);
             }
         }
-        Back();
+        back();
         sleep(1500);
     });
 
