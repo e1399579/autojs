@@ -32,19 +32,13 @@
  */
 auto(); // 自动打开无障碍服务
 var config = files.isFile("config.js") ? require("config.js") : {};
-var default_config = {
-    password: "", // 锁屏密码
-    takeImg: "take.png", // 收取好友能量用到的图片
-    pattern_size: 3, // 图案解锁每行点数
-    max_retry_times: 10, // 最大失败重试次数
-    timeout: 12000, // 超时时间：毫秒
-    check_self_timeout: 60, // 检测自己能量时间：秒
-    max_swipe_times: 100 // 好友列表最多滑动次数
-};
 if (typeof config !== "object") {
     config = {};
 }
-var options = Object.assign(default_config, config); // 用户配置合并
+var options = Object.assign({
+    password: "",
+    pattern_size: 3
+}, config); // 用户配置合并
 
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
@@ -157,9 +151,12 @@ function AntForest(robot, options) {
     this.robot = robot;
     options = options || {};
     var settings = {
-        timeout: 6000,
-        max_retry_times: 10,
-        takeImg: "take.png"
+        timeout: 8000, // 超时时间：毫秒
+        max_retry_times: 10, // 最大失败重试次数
+        takeImg: "take.png", // 收取好友能量用到的图片
+        max_swipe_times: 100, // 好友列表最多滑动次数
+        min_time: "7:14:00", // 检测时段
+        max_time: "7:15:50",
     };
     this.options = Object.assign(settings, options);
     this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
@@ -259,7 +256,7 @@ function AntForest(robot, options) {
         var timeout = this.options.timeout;
         var waitTime = 200;
         var min_height = HEIGHT / 2;
-        sleep(1000);
+        sleep(2000);
         for (var i = 0; i < timeout; i += waitTime) {
             var webView = className("android.webkit.WebView").scrollable(true).findOne(timeout);
             if (!webView) return false;
@@ -286,7 +283,7 @@ function AntForest(robot, options) {
     };
 
     this.findForest = function () {
-        return className("android.webkit.WebView").findOne(this.options.timeout).child(1);
+        return descMatches(/.{2}:.{2}:.{2}/).findOne(this.options.timeout).parent();
     };
 
     this.getPower = function (forest) {
@@ -294,9 +291,6 @@ function AntForest(robot, options) {
     };
 
     this.work = function () {
-        // 对话出现
-        sleep(500);
-
         var timeout = this.options.timeout;
         // 蚂蚁森林控件范围
         var forest = this.findForest();
@@ -316,7 +310,7 @@ function AntForest(robot, options) {
 
         // 开始收取
         this.take(forest);
-        this.takeRemain(forest, this.options.check_self_timeout);
+        this.takeRemain(this.getRemainList(forest), this.options.min_time, this.options.max_time);
         sleep(500);
 
         var power = this.getPower(this.findForest()) - startPower;
@@ -350,28 +344,23 @@ function AntForest(robot, options) {
         log("开始收取好友能量");
         
         var total = 0;
+        var bottom = 0;
         total += this.takeOthers(icon, function () {
             var webView = className("android.webkit.WebView").findOnce();
             if (!webView) return false;
+            var rect = webView.bounds();
 
-            var num;
-            var childNum = desc("查看更多动态").exists() ? 2 : 1;
-            if ((webView.childCount() >= childNum)) {
-                var list = webView.child(childNum).child(1);
-                num = list.childCount();
-                if (num < 1) return true;
-            } else {
-                toastLog("查找排行榜失败");
+            if (rect.bottom === bottom) {
                 return true;
             }
 
-            return list.child(num - 1).visibleToUser();
+            bottom = rect.bottom;
+            return false;
         });
 
         // 统计下次时间
         var minuteList = this.statisticsNextTime();
 
-        this.robot.swipe(WIDTH / 2, HEIGHT - 200, WIDTH / 2, 0); // 兼容部分手机没有滑到底部问题
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
             log(keyword);
@@ -459,7 +448,7 @@ function AntForest(robot, options) {
      */
     this.take = function (forest) {
         forest = forest || this.findForest();
-        var filters = forest.find(descMatches(/^(绿色能量|\d+k?g)$/));
+        var filters = forest.find(descMatches(/^(收集能量|\d+k?g|绿色能量)$/));
 
         filters.sort(function (o1, o2) {
             return o2.indexInParent() - o1.indexInParent();
@@ -486,17 +475,12 @@ function AntForest(robot, options) {
     /**
      * 获取剩余能量球列表
      * @param {object} forest
-     * @param {number} max_time
      */
-    this.getRemainList = function (forest, max_time) {
+    this.getRemainList = function (forest) {
         var list = [];
-        forest.find(descMatches(/.*?\d{2}:\d{2}/)).forEach(function (o) {
-            var time = this.getRemainTime(o);
-            if (time > max_time) return;
-
+        forest.find(descMatches(/^(收集能量|\d+k?g|绿色能量)$/)).forEach(function (o) {
             var rect = o.bounds();
             list.push({
-                time: time,
                 x: rect.centerX(),
                 y: rect.centerY()
             });
@@ -505,45 +489,28 @@ function AntForest(robot, options) {
         return list;
     };
 
-    /**
-     * 获取剩余时间：秒
-     * @param {object} o
-     */
-    this.getRemainTime = function (o) {
-        var matches = o.contentDescription.match(/.*?(\d{2}):(\d{2})/);
-        if (!matches) return 0;
-        var hour = parseInt(matches[1]);
-        var minute = parseInt(matches[2]);
-        return (hour * 60 + minute) * 60;
-    };
-
-    this.takeRemain = function (forest, max_time) {
-        if (!max_time) return;
-
-        var list = this.getRemainList(forest, max_time);
-        if (!list.length) return;
-
-        list.sort(function (o1, o2) {
-            return o1.time - o2.time;
-        });
-        var min_time = list[0].time;
-        if (min_time > max_time) return;
+    this.takeRemain = function (list, min_time, max_time) {
+        var date = new Date();
+        var today = date.toDateString();
+        var min_timestamp = Date.parse(today + " " + min_time);
+        var max_timestamp = Date.parse(today + " " + max_time);
+        var now = date.getTime();
         
-        toastLog("开始检测剩余能量");
+        if ((min_timestamp <= now) && (now <= max_timestamp)) {
+            toastLog("开始检测剩余能量");
+            var millisecond = max_timestamp - now;
+            var step_time = 100;
+            // 每次点击需要156ms
+            for (var i = 0;i <= millisecond;i += step_time + 156) {
+                list.forEach(function (o) {
+                    this.robot.click(o.x, o.y);
+                }.bind(this));
 
-        max_time = Math.min(list[list.length - 1].time, max_time);
-        var millisecond = max_time * 1000;
-        var step_time = 100;
-        // 每次操作有延迟156ms
-        for (var i = 0;i <= millisecond;i += step_time + 156) {
-            list.forEach(function (o) {
-                this.robot.click(o.x, o.y);
-            }.bind(this));
-
-            sleep(step_time);
+                sleep(step_time);
+            }
+            
+            toastLog("检测结束");
         }
-        
-        toastLog("检测结束");
     };
 
     /**

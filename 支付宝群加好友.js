@@ -18,7 +18,7 @@ function multiScreenAdd(max_swipe_num, max_friend_num) {
         if (swipe_num > max_swipe_num) break;
 
         total += oneScreenAdd();
-        Swipe(540, 1700, 540, 0, 1000);
+        swipe(540, 1700, 540, 0, 50);
         sleep(3000);
         swipe_num++;
     }
