@@ -255,25 +255,25 @@ function AntForest(robot, options) {
     this.waitForLoading = function () {
         var timeout = this.options.timeout;
         var waitTime = 200;
-        var min_height = HEIGHT / 2;
         sleep(2000);
+        timeout -= 2000;
         for (var i = 0; i < timeout; i += waitTime) {
             var webView = className("android.webkit.WebView").scrollable(true).findOne(timeout);
             if (!webView) return false;
-            if (!webView.child(1)) {
+            var container = webView.child(0);
+            if (!container) {
                 sleep(waitTime);
                 continue;
             }
 
-            var container = webView.child(1);
-            if (container.bounds().height() > min_height) {
+            var content = container.contentDescription;
+            if ("服务器打瞌睡了" === content) {
+                return false; // 失败
+            }
+            
+            if (container.childCount() >= 3) {
                 sleep(1000); // 等待界面渲染
                 return true; // 加载成功
-            }
-
-            var elementCount = container.childCount();
-            if (1 === elementCount) {
-                return false; // 失败
             }
 
             sleep(waitTime); // 加载中
@@ -361,6 +361,7 @@ function AntForest(robot, options) {
         // 统计下次时间
         var minuteList = this.statisticsNextTime();
 
+        this.robot.swipe(WIDTH / 2, HEIGHT - 200, WIDTH / 2, 0); // 兼容部分手机没有滑到底部问题
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
             log(keyword);
@@ -431,6 +432,21 @@ function AntForest(robot, options) {
         }
         if (timeList.length) {
             log("下次收取时间：" + timeList.join(', '));
+            
+            // 添加tasker任务
+            var today = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDay();
+            var max_timestamp = Date.parse(today + " " + this.options.max_time);
+            if (timestamp > max_timestamp) {
+                var str = today + " " + timeList.shift();
+                app.sendBroadcast({
+                    action: "net.dinglisch.android.tasker.ActionCodes.RUN_SCRIPT",
+                    extras: {
+                        name: "蚂蚁森林",
+                        time: str
+                    }
+                });
+                log("已添加Tasker任务：" + str);
+            }
         }
     };
 
@@ -448,14 +464,8 @@ function AntForest(robot, options) {
      */
     this.take = function (forest) {
         forest = forest || this.findForest();
-        var filters = forest.find(descMatches(/^(收集能量|\d+k?g|绿色能量)$/));
+        var filters = forest.find(descMatches(/(收集能量|绿色能量)/));
 
-        filters.sort(function (o1, o2) {
-            return o2.indexInParent() - o1.indexInParent();
-        });
-
-        // 删除右上角控件
-        filters.pop();
         log("找到" + filters.length + "个能量球");
 
         for (var i = 0, len = filters.length; i < len; i++) {
@@ -478,7 +488,7 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function (forest) {
         var list = [];
-        forest.find(descMatches(/^(收集能量|\d+k?g|绿色能量)$/)).forEach(function (o) {
+        forest.find(descMatches(/(收集能量|绿色能量)/)).forEach(function (o) {
             var rect = o.bounds();
             list.push({
                 x: rect.centerX(),
