@@ -434,8 +434,9 @@ function AntForest(robot, options) {
             log("下次收取时间：" + timeList.join(', '));
             
             // 添加tasker任务
-            var today = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDay();
-            var max_timestamp = Date.parse(today + " " + this.options.max_time);
+            var today = date.toDateString();
+            var max_time = today + " " + this.options.max_time;
+            var max_timestamp = Date.parse(max_time);
             if (timestamp > max_timestamp) {
                 var str = today + " " + timeList.shift();
                 app.sendBroadcast({
@@ -500,6 +501,9 @@ function AntForest(robot, options) {
     };
 
     this.takeRemain = function (list, min_time, max_time) {
+        var len = list.length;
+        if (!len) return;
+        
         var date = new Date();
         var today = date.toDateString();
         var min_timestamp = Date.parse(today + " " + min_time);
@@ -511,7 +515,8 @@ function AntForest(robot, options) {
             var millisecond = max_timestamp - now;
             var step_time = 100;
             // 每次点击需要156ms
-            for (var i = 0;i <= millisecond;i += step_time + 156) {
+            var use_time = step_time + 156 * len;
+            for (var i = 0;i <= millisecond;i += use_time) {
                 list.forEach(function (o) {
                     this.robot.click(o.x, o.y);
                 }.bind(this));
