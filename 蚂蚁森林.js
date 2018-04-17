@@ -15,7 +15,7 @@ var options = Object.assign({
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
-const IS_ROOT = files.exists("/system/xbin/su") || files.exists("/system/bin/su");
+const IS_ROOT = files.exists("/sbin/su") || files.exists("/system/xbin/su") || files.exists("/system/bin/su");
 
 setScreenMetrics(WIDTH, HEIGHT);
 start(options);
@@ -176,6 +176,7 @@ function AntForest(robot, options) {
             } else {
                 times++;
                 this.back();
+                sleep(1500);
                 this.openApp();
             }
         } while (times < this.options.max_retry_times);
@@ -449,8 +450,9 @@ function AntForest(robot, options) {
             log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
             sleep(100);
         }
-
+        
         // 误点了按钮则返回
+        sleep(1000);
         if (id("com.alipay.mobile.ui:id/title_bar_title").exists()) {
             this.back();
             sleep(1500);

@@ -5,7 +5,7 @@
 * 欢迎使用和提交bug反馈
 
 ## 设备要求：
-1. 免ROOT权限(与Tasker结合使用) 或 ROOT权限(与Edge或Tasker结合使用)
+1. 免ROOT权限(安卓7.0以上，与Tasker结合使用) 或 ROOT权限(安卓5.0以上，与Edge或Tasker结合使用)
 2. 安卓5.0或更高版本(需要开启无障碍服务)
 3. Auto.js软件3.1.1 Alpha 5或更高版本
 
