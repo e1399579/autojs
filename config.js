@@ -6,7 +6,8 @@ var config = {
     timeout: 12000, // 超时时间：毫秒
     min_time: "7:14:00", // 检测时段
     max_time: "7:15:50",
-    max_swipe_times: 100 // 好友列表最多滑动次数
+    max_swipe_times: 100, // 好友列表最多滑动次数
+    check_within_time: 5 // 排行反复检测5分钟以内
 };
 
 module.exports = config;

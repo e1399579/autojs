@@ -8,7 +8,8 @@ var default_config = {
     timeout: 12000, // 超时时间：毫秒
     min_time: "7:14:00", // 检测时段
     max_time: "7:15:50",
-    max_swipe_times: 100 // 好友列表最多滑动次数
+    max_swipe_times: 100, // 好友列表最多滑动次数
+    check_within_time: 5 // 排行反复检测5分钟以内
 };
 if (typeof config !== "object") {
     config = {};
@@ -34,14 +35,14 @@ function showSettings(options) {
                     <input id="pattern_size" w="150" h="40" />
                 </linear>
                 <linear>
-                    <text w="96" h="*" gravity="right|center" size="16">失败重试</text>
+                    <text w="96" h="*" gravity="right|center" size="16">失败最多重试</text>
                     <input id="max_retry_times" w="150" h="40" />
                     <text w="*" h="*" gravity="left|center" size="16">次</text>
                 </linear>
                 <linear>
-                    <text w="96" h="*" gravity="right|center" size="16">查找超时</text>
+                    <text w="96" h="*" gravity="right|center" size="16">查找控件超时</text>
                     <input id="timeout" w="150" h="40" />
-                    <text w="*" h="*" gravity="left|center" size="16">ms</text>
+                    <text w="*" h="*" gravity="left|center" size="16">毫秒</text>
                 </linear>
                 <linear>
                     <text w="96" h="*" gravity="right|center" size="16">检测能量时段</text>
@@ -53,6 +54,11 @@ function showSettings(options) {
                     <text w="96" h="*" gravity="right|center" size="16">排行最多滑动</text>
                     <input id="max_swipe_times" w="150" h="40" />
                     <text w="*" h="*" gravity="left|center" size="16">次</text>
+                </linear>
+                <linear>
+                    <text w="96" h="*" gravity="right|center" size="16">排行反复检测</text>
+                    <input id="check_within_time" w="150" h="40" />
+                    <text w="*" h="*" gravity="left|center" size="16">分钟以内能量</text>
                 </linear>
                 <linear gravity="center">
                     <button id="submit" text="确定" />

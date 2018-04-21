@@ -129,6 +129,7 @@ function AntForest(robot, options) {
         max_swipe_times: 100, // 好友列表最多滑动次数
         min_time: "7:14:00", // 检测时段
         max_time: "7:15:50",
+        check_within_time: 5
     };
     this.options = Object.assign(settings, options);
     this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
@@ -231,7 +232,10 @@ function AntForest(robot, options) {
         sleep(2000);
         timeout -= 2000;
         for (var i = 0; i < timeout; i += waitTime) {
-            if (desc(keyword).exists()) return true;
+            if (desc(keyword).exists()) {
+                sleep(1000);
+                return true;
+            }
 
             sleep(waitTime); // 加载中
         }
@@ -290,9 +294,7 @@ function AntForest(robot, options) {
         var total = 0;
         var bottom = 0;
         total += this.takeOthers(icon, function () {
-            var webView = className("android.webkit.WebView").findOnce();
-            if (!webView) return false;
-            var rect = webView.bounds();
+            var rect = desc("合种").findOnce().bounds();
 
             if (rect.bottom === bottom) {
                 return true;
@@ -303,9 +305,7 @@ function AntForest(robot, options) {
         });
 
         // 统计下次时间
-        var minuteList = this.statisticsNextTime();
-
-        this.robot.swipe(WIDTH / 2, HEIGHT - 200, WIDTH / 2, 0); // 兼容部分手机没有滑到底部问题
+        var minuteList = [];
         var keyword = "查看更多好友";
         if (desc(keyword).exists()) {
             log(keyword);
@@ -319,18 +319,43 @@ function AntForest(robot, options) {
                     this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
                     sleep(500);
 
-                    var page = 0;
-                    total += this.takeOthers(icon, function () {
-                        /*var selector = desc("没有更多了");
-                        if (!selector.exists()) return false;
+                    var page, min_minute;
+                    for (;;) {
+                        log("往下翻页");
+                        page = 0;
+                        total += this.takeOthers(icon, function () {
+                            /*var selector = desc("没有更多了");
+                            if (!selector.exists()) return false;
 
-                        return selector.findOne().visibleToUser();*/
-                        page++;
-                        return (page > this.options.max_swipe_times) 
-                        || (findColorEquals(this.capture, "#30BF6C", WIDTH - 300, 0, 200, HEIGHT) !== null);
-                    }.bind(this));
+                            return selector.findOne().visibleToUser();*/
+                            page++;
+                            return (page > this.options.max_swipe_times) 
+                            || (findColorEquals(this.capture, "#30BF6C", WIDTH - 300, 0, 200, HEIGHT) !== null);
+                        }.bind(this));
 
-                    minuteList = this.statisticsNextTime();
+                        minuteList = this.statisticsNextTime();
+                        this.filterMinuteList(minuteList);
+                        
+                        if (!this.executeNextTask()) {
+                            break;
+                        }
+
+                        if (!minuteList.length) {
+                            break;
+                        }
+                        min_minute = minuteList[0];
+                        if (min_minute > this.options.check_within_time) {
+                            break;
+                        }
+
+                        log("往上翻页");
+                        page = 0;
+                        total += this.takeOthers(icon, function () {
+                            page++;
+                            return (page > this.options.max_swipe_times) 
+                            || (findColorEquals(this.capture, "#EFAE44", 0, 0, 110, HEIGHT / 2) !== null);
+                        }.bind(this), "prev");
+                    }
 
                     this.back();
                     sleep(2000);
@@ -341,6 +366,9 @@ function AntForest(robot, options) {
             } else {
                 toastLog("进入好友排行榜失败");
             }
+        } else {
+            minuteList = this.statisticsNextTime();
+            this.filterMinuteList(minuteList);
         }
         
         var endPower = this.getPower();
@@ -353,46 +381,16 @@ function AntForest(robot, options) {
         sleep(1500);
 
         // 统计部分，可以删除
-        var date = new Date();
-
-        // 排序
-        minuteList.sort(function (m1, m2) {
-            return m1 - m2;
-        });
-        // 去掉重复的
-        for (var i = 1, len = minuteList.length; i < len; i++) {
-            // 相差1分钟以内认为是同一时间
-            if ((minuteList[i] - minuteList[i - 1]) <= 1) {
-                minuteList.splice(i--, 1);
-                len--;
-            }
-        }
-
-        var timeList = [];
-        var timestamp = date.getTime();
-        for (var i = 0, len = minuteList.length; i < len; i++) {
-            var minute = minuteList[i];
-            var now = timestamp + minute * 60 * 1000;
-            date.setTime(now);
-            timeList.push(date.getHours() + ":" + date.getMinutes());
-        }
+        var timeList = this.getTimeList(minuteList);
         if (timeList.length) {
             log("可收取时间：" + timeList.join(', '));
             
             // 添加tasker任务
-            var today = date.toDateString();
-            var max_time = today + " " + this.options.max_time;
-            var max_timestamp = Date.parse(max_time);
-            if (timestamp > max_timestamp) {
-                var str = today + " " + timeList.shift();
-                app.sendBroadcast({
-                    action: "net.dinglisch.android.tasker.ActionCodes.RUN_SCRIPT",
-                    extras: {
-                        name: "蚂蚁森林",
-                        time: str
-                    }
-                });
-                log("已发送Tasker任务：" + str);
+            if (this.executeNextTask()) {
+                var date = new Date();
+                var today = date.toDateString();
+                var next_time = today + " " + timeList[0];
+                this.notifyTasker(next_time);
             }
         }
     };
@@ -405,6 +403,54 @@ function AntForest(robot, options) {
         return minuteList;
     };
 
+    this.filterMinuteList = function (minuteList) {
+        // 排序
+        minuteList.sort(function (m1, m2) {
+            return m1 - m2;
+        });
+        // 去掉重复的
+        for (var i = 1, len = minuteList.length; i < len; i++) {
+            // 相差1分钟以内认为是同一时间
+            if ((minuteList[i] - minuteList[i - 1]) <= 1) {
+                minuteList.splice(i--, 1);
+                len--;
+            }
+        }
+    };
+
+    this.getTimeList = function (minuteList) {
+        var date = new Date();
+        var timeList = [];
+        var timestamp = date.getTime();
+        for (var i = 0, len = minuteList.length; i < len; i++) {
+            var minute = minuteList[i];
+            var now = timestamp + minute * 60 * 1000;
+            date.setTime(now);
+            timeList.push(date.getHours() + ":" + date.getMinutes());
+        }
+        return timeList;
+    };
+
+    this.executeNextTask = function () {
+        var date = new Date();
+        var timestamp = date.getTime();
+        var today = date.toDateString();
+        var max_time = today + " " + this.options.max_time;
+        var max_timestamp = Date.parse(max_time);
+        return (timestamp > max_timestamp);
+    };
+
+    this.notifyTasker = function (time) {
+        app.sendBroadcast({
+            action: "net.dinglisch.android.tasker.ActionCodes.RUN_SCRIPT",
+            extras: {
+                name: "蚂蚁森林",
+                time: time
+            }
+        });
+        log("已发送Tasker任务：" + time);
+    };
+
     /**
      * 收取能量
      */
@@ -412,14 +458,11 @@ function AntForest(robot, options) {
         var left = 0, top = 0, right = WIDTH, buttom = 1100;
         var filters = descMatches(/收集能量/).boundsInside(left, top, right, buttom).find();
 
-        log("找到" + filters.length + "个能量球");
+        var num = filters.length;
+        log("找到" + num + "个能量球");
+        sleep(100 * num);
 
-        for (var i = 0, len = filters.length; i < len; i++) {
-            // 原有的click无效
-            this.robot.clickCenter(filters[i]);
-            log("点击->" + filters[i].contentDescription + ", " + filters[i].bounds());
-            sleep(100);
-        }
+        this.robot.clickMultiCenter(filters);
         
         // 误点了按钮则返回
         sleep(1000);
@@ -436,10 +479,7 @@ function AntForest(robot, options) {
         var list = [];
         descMatches(/收集能量/).find().forEach(function (o) {
             var rect = o.bounds();
-            list.push({
-                x: rect.centerX(),
-                y: rect.centerY()
-            });
+            list.push([rect.centerX(), rect.centerY()]);
         }.bind(this));
 
         return list;
@@ -458,13 +498,10 @@ function AntForest(robot, options) {
         if ((min_timestamp <= now) && (now <= max_timestamp)) {
             toastLog("开始检测剩余能量");
             var millisecond = max_timestamp - now;
-            var step_time = 100;
-            // 每次点击需要156ms
-            var use_time = step_time + 156 * len;
+            var step_time = 50;
+            var use_time = step_time + 200;
             for (var i = 0;i <= millisecond;i += use_time) {
-                list.forEach(function (o) {
-                    this.robot.click(o.x, o.y);
-                }.bind(this));
+                this.robot.clickMulti(list);
 
                 sleep(step_time);
             }
@@ -477,15 +514,25 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param icon
      * @param isEndFunc
+     * @param scroll
      * @returns {number}
      */
-    this.takeOthers = function (icon, isEndFunc) {
+    this.takeOthers = function (icon, isEndFunc, scroll) {
         var row = (192 * (HEIGHT / 1920)) | 0;
-        var x1 = WIDTH / 2;
-        var y1 = HEIGHT - row;
-        var x2 = WIDTH / 2;
-        var y2 = row;
         var total = 0;
+        var x1, y1, x2, y2;
+        x2 = x1 = WIDTH / 2;
+        switch (scroll) {
+            case "next":
+            default:
+                y1 = HEIGHT - row;
+                y2 = row;
+                break;
+            case "prev":
+                y1 = row;
+                y2 = HEIGHT - row;
+                break;
+        }
         while (1) {
             total += this.takeFromImage(icon);
 
