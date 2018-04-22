@@ -46,18 +46,21 @@ function NougatRobot(max_retry_times) {
     };
 
     this.clickMulti = function (points) {
-        var list = [];
-        var duration = 190;
+        /* var list = [];
+        var duration = 1;
         var max_point = 10; // 最多触摸点数
         points.forEach(function (point) {
-            list.push([0, duration, point, point]);
+            list.push([0, duration, point]);
         });
 
         // 同时点击多个点
         var chunks = list.chunk(max_point); // 太多点则分成多段
         chunks.forEach(function (chunk) {
             gestures.apply(null, chunk);
-        });
+        }); */
+        points.forEach(function (point) {
+            this.click(point[0], point[1]);
+        }.bind(this));
     };
 }
 

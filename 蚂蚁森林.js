@@ -344,6 +344,7 @@ function AntForest(robot, options) {
                             break;
                         }
                         min_minute = minuteList[0];
+                        log("当前最小剩余" + min_minute + "分钟");
                         if (min_minute > this.options.check_within_time) {
                             break;
                         }
@@ -464,9 +465,13 @@ function AntForest(robot, options) {
 
         this.robot.clickMultiCenter(filters);
         
+        this.autoBack();
+    };
+
+    this.autoBack = function () {
         // 误点了按钮则返回
         sleep(1000);
-        if (id("com.alipay.mobile.ui:id/title_bar_title").exists()) {
+        if (id("com.alipay.mobile.ui:id/title_bar_title").exists() || text("通知").exists()) {
             this.back();
             sleep(1500);
         }
@@ -498,13 +503,14 @@ function AntForest(robot, options) {
         if ((min_timestamp <= now) && (now <= max_timestamp)) {
             toastLog("开始检测剩余能量");
             var millisecond = max_timestamp - now;
-            var step_time = 50;
-            var use_time = step_time + 200;
+            var step_time = 94;
+            var use_time = step_time + 156 * len;
             for (var i = 0;i <= millisecond;i += use_time) {
                 this.robot.clickMulti(list);
 
                 sleep(step_time);
             }
+            this.autoBack();
             
             toastLog("检测结束");
         }

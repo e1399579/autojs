@@ -45,10 +45,11 @@ function showSettings(options) {
                     <text w="*" h="*" gravity="left|center" size="16">毫秒</text>
                 </linear>
                 <linear>
-                    <text w="96" h="*" gravity="right|center" size="16">检测能量时段</text>
+                    <text w="96" h="*" gravity="right|center" size="16">自己的能量从</text>
                     <input id="min_time" w="75" h="40" />
                     <text> - </text>
                     <input id="max_time" w="75" h="40" />
+                    <text w="*" h="*" gravity="left|center" size="16">执行检测</text>
                 </linear>
                 <linear>
                     <text w="96" h="*" gravity="right|center" size="16">排行最多滑动</text>
