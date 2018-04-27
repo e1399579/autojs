@@ -521,7 +521,6 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param icon
      * @param isEndFunc
-     * @param swipe_sleep
      * @param scroll
      * @returns {number}
      */
