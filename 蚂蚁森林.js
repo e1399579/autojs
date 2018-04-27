@@ -293,7 +293,7 @@ function AntForest(robot, options) {
         
         var total = 0;
         var bottom = 0;
-        total += this.takeOthers(icon, function () {
+        total += this.takeOthers(icon, 500, function () {
             var rect = desc("合种").findOnce().bounds();
 
             if (rect.bottom === bottom) {
@@ -319,11 +319,11 @@ function AntForest(robot, options) {
                     this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
                     sleep(500);
 
-                    var page, min_minute;
+                    var page, min_minute, swipe_sleep = 500;
                     for (;;) {
                         log("往下翻页");
                         page = 0;
-                        total += this.takeOthers(icon, function () {
+                        total += this.takeOthers(icon, swipe_sleep, function () {
                             /*var selector = desc("没有更多了");
                             if (!selector.exists()) return false;
 
@@ -348,10 +348,11 @@ function AntForest(robot, options) {
                         if (min_minute > this.options.check_within_time) {
                             break;
                         }
+                        swipe_sleep = 300;
 
                         log("往上翻页");
                         page = 0;
-                        total += this.takeOthers(icon, function () {
+                        total += this.takeOthers(icon, swipe_sleep, function () {
                             page++;
                             return (page > this.options.max_swipe_times) 
                             || (findColorEquals(this.capture, "#EFAE44", 0, 0, 110, HEIGHT / 2) !== null);
@@ -422,12 +423,12 @@ function AntForest(robot, options) {
     this.getTimeList = function (minuteList) {
         var date = new Date();
         var timeList = [];
-        var timestamp = date.getTime();
+        var timestamp = date.getTime() - 20000;
         for (var i = 0, len = minuteList.length; i < len; i++) {
             var minute = minuteList[i];
             var now = timestamp + minute * 60 * 1000;
             date.setTime(now);
-            timeList.push(date.getHours() + ":" + date.getMinutes());
+            timeList.push(date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds());
         }
         return timeList;
     };
@@ -520,10 +521,11 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param icon
      * @param isEndFunc
+     * @param swipe_sleep
      * @param scroll
      * @returns {number}
      */
-    this.takeOthers = function (icon, isEndFunc, scroll) {
+    this.takeOthers = function (icon, swipe_sleep, isEndFunc, scroll) {
         var row = (192 * (HEIGHT / 1920)) | 0;
         var total = 0;
         var x1, y1, x2, y2;
@@ -535,7 +537,7 @@ function AntForest(robot, options) {
                 y2 = row;
                 break;
             case "prev":
-                y1 = row;
+                y1 = row * 1.5;
                 y2 = HEIGHT - row;
                 break;
         }
@@ -547,7 +549,7 @@ function AntForest(robot, options) {
             }
 
             this.robot.swipe(x1, y1, x2, y2);
-            sleep(500); // 等待滑动动画
+            sleep(swipe_sleep); // 等待滑动动画
         }
 
         return total;

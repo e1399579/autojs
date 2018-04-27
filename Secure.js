@@ -23,8 +23,12 @@ function Secure(robot, max_retry_times) {
         return secure;
     }.bind(this))();
 
+    this.isLocked = function () {
+        return this.km.inKeyguardRestrictedInputMode();
+    };
+
     this.openLock = function (password, pattern_size) {
-        var isLocked = this.km.inKeyguardRestrictedInputMode(); // 是否已经上锁
+        var isLocked = this.isLocked(); // 是否已经上锁
         var isSecure = this.km.isKeyguardSecure(); // 是否设置了密码
         pattern_size = pattern_size || 3;
         log({
@@ -34,6 +38,8 @@ function Secure(robot, max_retry_times) {
 
         var i = 0;
         while (this.secure.hasLayer()) {
+            if (!this.isLocked()) return true;
+
             if (i >= this.max_retry_times) {
                 toastLog("打开上滑图层失败");
                 return this.failed();
@@ -151,11 +157,8 @@ function NativeSecure(secure) {
         } else if (id("com.android.systemui:id/pinEntry").exists()) {
             return this.unlockKey(password, len);
         } else {
-            /*toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
-            return this.failed();*/
-            toastLog("尝试PIN解锁");
-            this.openLayer();
-            return this.unlockKey(password, len);
+            toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
+            return this.checkUnlock();
         }
     };
 
@@ -186,7 +189,7 @@ function NativeSecure(secure) {
             return this.failed();
         }
 
-        return !this.km.inKeyguardRestrictedInputMode();
+        return !this.isLocked();
     };
 }
 
@@ -194,7 +197,8 @@ function MIUISecure(secure) {
     this.__proto__ = secure;
 
     this.hasLayer = function () {
-        return id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists();
+        return id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists()
+        || id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").exists();
     };
 
     this.unlock = function (password, pattern_size) {
@@ -208,7 +212,7 @@ function MIUISecure(secure) {
             return this.unlockKey(password, len);
         } else {
             toastLog("识别锁定方式失败，型号：" + device.brand + " " + device.product + " " + device.release);
-            return this.failed();
+            return this.checkUnlock();
         }
     };
 
@@ -237,7 +241,7 @@ function MIUISecure(secure) {
             return this.failed();
         }
 
-        return !this.km.inKeyguardRestrictedInputMode();
+        return !this.isLocked();
     };
 }
 
