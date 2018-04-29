@@ -135,6 +135,7 @@ function AntForest(robot, options) {
     this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
     this.state = {};
     this.capture = null;
+    this.bounds = [0, 0, WIDTH, 1100];
 
     this.saveState = function (isScreenOn) {
         this.state.isScreenOn = isScreenOn;
@@ -457,8 +458,9 @@ function AntForest(robot, options) {
      * 收取能量
      */
     this.take = function () {
-        var left = 0, top = 0, right = WIDTH, buttom = 1100;
-        var filters = descMatches(/收集能量/).boundsInside(left, top, right, buttom).find();
+        var filters = className("android.widget.Button").boundsInside(this.bounds[0], this.bounds[1], this.bounds[2], this.bounds[3]).filter(function(o) {
+            return (null === o.id());
+        }).find();
 
         var num = filters.length;
         log("找到" + num + "个能量球");
@@ -483,7 +485,9 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function () {
         var list = [];
-        descMatches(/收集能量/).find().forEach(function (o) {
+        className("android.widget.Button").boundsInside(this.bounds[0], this.bounds[1], this.bounds[2], this.bounds[3]).filter(function(o) {
+            return (null === o.id());
+        }).find().forEach(function (o) {
             var rect = o.bounds();
             list.push([rect.centerX(), rect.centerY()]);
         }.bind(this));
@@ -521,6 +525,7 @@ function AntForest(robot, options) {
      * 收取好友能量
      * @param icon
      * @param isEndFunc
+     * @param swipe_sleep
      * @param scroll
      * @returns {number}
      */
