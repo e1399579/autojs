@@ -458,9 +458,11 @@ function AntForest(robot, options) {
      * 收取能量
      */
     this.take = function () {
-        var filters = className("android.widget.Button").boundsInside(this.bounds[0], this.bounds[1], this.bounds[2], this.bounds[3]).filter(function(o) {
-            return (null === o.id());
-        }).find();
+        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
+        var filters = forest.find(className("android.widget.Button").filter(function (o) {
+            var desc = o.contentDescription;
+            return (null !== desc.match(/^收集能量|^$/));
+        }));
 
         var num = filters.length;
         log("找到" + num + "个能量球");
@@ -485,9 +487,11 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function () {
         var list = [];
-        className("android.widget.Button").boundsInside(this.bounds[0], this.bounds[1], this.bounds[2], this.bounds[3]).filter(function(o) {
-            return (null === o.id());
-        }).find().forEach(function (o) {
+        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
+        forest.find(className("android.widget.Button").filter(function (o) {
+            var desc = o.contentDescription;
+            return (null !== desc.match(/才能收取$|^$/));
+        })).forEach(function (o) {
             var rect = o.bounds();
             list.push([rect.centerX(), rect.centerY()]);
         }.bind(this));
