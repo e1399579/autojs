@@ -12,7 +12,7 @@ var options = Object.assign({
     password: "",
     pattern_size: 3
 }, config); // 用户配置合并
- log(config);
+ 
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
@@ -249,7 +249,7 @@ function AntForest(robot, options) {
     };
 
     this.getPower = function () {
-        var energy = id("tree_energy").findOne(2000) || descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOne(2000);
+        var energy = id("tree_energy").findOne(2000) || descMatches(/\d+g/).boundsInside(WIDTH * 0.6, 0, WIDTH, 340).findOne(2000);
         return energy ? parseInt(energy.contentDescription) : 0;
     };
 
@@ -459,7 +459,6 @@ function AntForest(robot, options) {
         var today = date.toDateString();
         var max_time = today + " " + this.options.max_time;
         var max_timestamp = Date.parse(max_time);
-    
         return (timestamp > max_timestamp);
     };
 
@@ -487,19 +486,32 @@ function AntForest(robot, options) {
      * 收取能量
      */
     this.take = function () {
-        var forest = descMatches(/\d+g/).boundsInside(0, 0, WIDTH-300, HEIGHT).findOne(2000);
+        var forest = descMatches(/\d+g/).boundsInside(WIDTH * 0.6, 0, WIDTH, 340).findOne(2000);
         if(forest){
             forest =  forest.parent();
+            var points =[];
+            
+            // 这种方式只能用于收取自己的能量
             var filters = forest.find(className("android.widget.Button").filter(function (o) {
                 var desc = o.contentDescription;
                 return (null !== desc.match(/^收集能量|^$/));
             }));
-    
-            var num = filters.length;
+            filters.forEach(function(o) {
+                var rect = o.bounds();
+                points.push([rect.centerX(), rect.centerY()]);
+            });
+
+            // "搜索“可收取”的标签，此标签在按钮的下方,
+            // 这种方式只能用于收取好友的能量
+            descContains("可收取").find().forEach(function(tv){
+                points.push([tv.bounds().centerX(), tv.bounds().centerY() - 100]);
+            });
+
+            var num = points.length;
             log("找到" + num + "个能量球");
             sleep(100 * num);
     
-            this.robot.clickMultiCenter(filters);
+            this.robot.clickMulti(points);
         }
         this.autoBack();
     };
