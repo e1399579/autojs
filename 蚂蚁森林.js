@@ -7,11 +7,12 @@ var config = files.isFile("config.js") ? require("config.js") : {};
 if (typeof config !== "object") {
     config = {};
 }
+
 var options = Object.assign({
     password: "",
     pattern_size: 3
 }, config); // 用户配置合并
-
+ log(config);
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
@@ -89,7 +90,10 @@ function start(options) {
     if (files.exists("Secure.js")) {
         var Secure = require("Secure.js");
         var secure = new Secure(robot, options.max_retry_times);
-        secure.openLock(options.password, options.pattern_size);
+        if(!secure.openLock(options.password, options.pattern_size)){
+            engines.stopAll();
+            exit();
+        }
     }
 
     antForest.launch();
@@ -245,14 +249,13 @@ function AntForest(robot, options) {
     };
 
     this.getPower = function () {
-        var energy= id("tree_energy").findOnce() || descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce();
-        return energy ? parseInt(energy.contentDescription) : null;
+        var energy = id("tree_energy").findOne(2000) || descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOne(2000);
+        return energy ? parseInt(energy.contentDescription) : 0;
     };
 
     this.work = function () {
         sleep(1000);
         this.robot.click(WIDTH / 2, 510);
-
         var timeout = this.options.timeout;
         var startPower = this.getPower();
         log("当前能量：" + startPower);
@@ -295,14 +298,17 @@ function AntForest(robot, options) {
         var total = 0;
         var bottom = 0;
         total += this.takeOthers(icon, 500, function () {
-            var rect = desc("合种").findOnce().bounds();
+            var rect = desc("合种").findOne(2000);
+            if(rect){
+                rect = rect.bounds();
+            
+                if (rect.bottom === bottom) {
+                    return true;
+                }
 
-            if (rect.bottom === bottom) {
-                return true;
+                bottom = rect.bottom;
+                return false;
             }
-
-            bottom = rect.bottom;
-            return false;
         });
 
         // 统计下次时间
@@ -359,14 +365,22 @@ function AntForest(robot, options) {
                             || (findColorEquals(this.capture, "#EFAE44", 0, 0, 110, HEIGHT / 2) !== null);
                         }.bind(this), "prev");
                     }
-
+                    
+                    toastLog("返回");
                     this.back();
-                    sleep(2000);
+                  
+                    sleep(1000);
+                    
+                    // 向上翻屏
+                    toastLog("向上翻屏");
+                    this.scrollUp();
+                    
+                    toastLog("等待主页");
                     this.waitForLoading("合种");
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
-            } else {
+            } else{
                 toastLog("进入好友排行榜失败");
             }
         } else {
@@ -377,6 +391,7 @@ function AntForest(robot, options) {
         var endPower = this.getPower();
         
         var added = endPower - startPower;
+        log("采集结束，当前共有%dg能量！", endPower)
         added = Math.max(0, added);
 
         this.back();
@@ -394,8 +409,12 @@ function AntForest(robot, options) {
                 var today = date.toDateString();
                 var next_time = today + " " + timeList[0];
                 this.notifyTasker(next_time);
-            }
-        }
+            }else{
+				this.notifyDelayTasker();
+			}
+        }else{
+			this.notifyDelayTasker();
+		}
     };
 
     this.statisticsNextTime = function () {
@@ -440,6 +459,7 @@ function AntForest(robot, options) {
         var today = date.toDateString();
         var max_time = today + " " + this.options.max_time;
         var max_timestamp = Date.parse(max_time);
+    
         return (timestamp > max_timestamp);
     };
 
@@ -454,22 +474,33 @@ function AntForest(robot, options) {
         log("已发送Tasker任务：" + time);
     };
 
+	// 发送广播，延迟40分钟启动下一次任务
+	this.notifyDelayTasker = function(){				
+		var date = new Date();
+		date.setMinutes(date.getMinutes() + 40);
+		var nextTime = date.toDateString() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+		this.notifyTasker(nextTime);
+		
+	};
+	
     /**
      * 收取能量
      */
     this.take = function () {
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
-        var filters = forest.find(className("android.widget.Button").filter(function (o) {
-            var desc = o.contentDescription;
-            return (null !== desc.match(/^收集能量|^$/));
-        }));
-
-        var num = filters.length;
-        log("找到" + num + "个能量球");
-        sleep(100 * num);
-
-        this.robot.clickMultiCenter(filters);
-        
+        var forest = descMatches(/\d+g/).boundsInside(0, 0, WIDTH-300, HEIGHT).findOne(2000);
+        if(forest){
+            forest =  forest.parent();
+            var filters = forest.find(className("android.widget.Button").filter(function (o) {
+                var desc = o.contentDescription;
+                return (null !== desc.match(/^收集能量|^$/));
+            }));
+    
+            var num = filters.length;
+            log("找到" + num + "个能量球");
+            sleep(100 * num);
+    
+            this.robot.clickMultiCenter(filters);
+        }
         this.autoBack();
     };
 
@@ -487,15 +518,17 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function () {
         var list = [];
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
-        forest.find(className("android.widget.Button").filter(function (o) {
-            var desc = o.contentDescription;
-            return (null !== desc.match(/才能收取$|^$/));
-        })).forEach(function (o) {
-            var rect = o.bounds();
-            list.push([rect.centerX(), rect.centerY()]);
-        }.bind(this));
-
+        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOne(2000);
+        if(forest){
+            forest = forest.parent();        
+            forest.find(className("android.widget.Button").filter(function (o) {
+                var desc = o.contentDescription;
+                return (null !== desc.match(/才能收取$|^$/));
+            })).forEach(function (o) {
+                var rect = o.bounds();
+                list.push([rect.centerX(), rect.centerY()]);
+            }.bind(this));
+        }
         return list;
     };
 
@@ -598,16 +631,18 @@ function AntForest(robot, options) {
             // 等待好友的森林
             var title = "好友森林";
             if (this.waitForLoading("浇水")) {
-                title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOnce();
-                log("进入" + title.text() + "成功");
-                total++;
-
-                var cover;
-                if (cover = descMatches(/\d{2}:\d{2}:\d{2}/).findOnce()) {
-                    toastLog("保护罩还剩" + cover.contentDescription + "，忽略");
-                } else {
-                    // 收取
-                    this.take();
+                title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOne(2000);
+                if(title){
+                    log("进入" + title.text() + "成功");
+                    total++;
+    
+                    var cover = descMatches(/\d{2}:\d{2}:\d{2}/).findOne(2000);
+                    if (cover) {
+                        toastLog("保护罩还剩" + cover.contentDescription + "，忽略");
+                    } else {
+                        // 收取
+                        this.take();
+                    }    
                 }
             } else {
                 toastLog("进入好友森林失败");
@@ -624,5 +659,15 @@ function AntForest(robot, options) {
     this.back = function () {
         back();
     };
+    
+    this.scrollUp = function () {
+        var y = Math.min(HEIGHT, 1500);
+        for(var i=0; i<5; i++){
+            this.robot.swipe(WIDTH / 2, 400, WIDTH / 2, y);
+            sleep(100);
+        }
+    }
+	
+
 }
 

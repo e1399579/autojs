@@ -1,13 +1,13 @@
 var config = {
-    password: "", // 锁屏密码
-    takeImg: "take.png", // 收取好友能量用到的图片
-    pattern_size: 3, // 图案解锁每行点数
-    max_retry_times: 10, // 最大失败重试次数
-    timeout: 12000, // 超时时间：毫秒
-    min_time: "7:14:00", // 检测时段
-    max_time: "7:15:50",
-    max_swipe_times: 100, // 好友列表最多滑动次数
-    check_within_time: 5 // 排行反复检测5分钟以内
+    "password": "1735",
+    "takeImg": "take.png",
+    "pattern_size": "3",
+    "max_retry_times": "10",
+    "timeout": "12000",
+    "min_time": "7:10:00",
+    "max_time": "7:11:00",
+    "max_swipe_times": "100",
+    "check_within_time": "2"
 };
 
 module.exports = config;
