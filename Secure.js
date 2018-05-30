@@ -13,7 +13,7 @@ function Secure(robot, max_retry_times) {
 
         switch (true) {
             case !isNaN(parseInt(shell("getprop ro.miui.ui.version.code").result)):
-                secure = new MIUISecure(this);
+                secure = new NativeSecure(this);
                 break;
             default:
                 secure = new NativeSecure(this);
@@ -66,6 +66,7 @@ function Secure(robot, max_retry_times) {
     this.failed = function () {
         KeyCode("KEYCODE_POWER");
         engines.stopAll();
+        toastLog("解锁失败，退出脚本！");
         exit();
         return false;
     };
