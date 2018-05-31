@@ -197,8 +197,10 @@ function MIUISecure(secure) {
     this.__proto__ = secure;
 
     this.hasLayer = function () {
-        return id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists()
-        || id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").exists();
+        return id("com.android.keyguard:id/unlock_screen_sim_card_info").exists() 
+        || id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists() 
+        || id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").exists()
+        || id("com.android.keyguard:id/notification_message_view").exists();
     };
 
     this.unlock = function (password, pattern_size) {

@@ -23,7 +23,9 @@ function start() {
     }
 
     toastLog("请打开星星球界面");
+    launchApp("支付宝");
     waitForActivity("com.alipay.mobile.nebulacore.ui.H5Activity");
+    //sleep(5000);
 
     var antManor = new AntManor();
 
@@ -33,48 +35,48 @@ function start() {
 }
 
 function AntManor() {
-    this.colors = [
-        "#4E86FF",
-        "#FF4C4C",
-    ];
-    this.max_retry_times = 10;
+    this.colors = ["#FF4C4C", "#4E86FF"];
+    this.find_time = 5000;
 
     this.play = function () {
         var len = this.colors.length;
         var wait_time = 100;
+        var baseline = device.height * 0.412 | 0;
+        var min_height = baseline * 0.55 | 0;
+        
+        // 发球
+        var point = this.findColorPoint(len);
+        var x = point.x;
+        var y = point.y;
+        click(x, y);
+        
         while (1) {
-            var points = this.untilFindColorPoint(len);
-            gestures.apply(null, points);
-
-            sleep(wait_time);
+            var point = this.findColorPoint(len);
+            var x = point.x;
+            var y = point.y;
+            
+            if (min_height <= y && y <= baseline)
+                click(x, baseline);
         }
-    };
-
-    this.untilFindColorPoint = function (len) {
-        var points = [];
-        for (var i = 0;i < this.max_retry_times;i++) {
-            points = this.findColorPoint(len);
-            if (points.length) break;
-        }
-        return points;
     };
 
     this.findColorPoint = function (len) {
-        var points = [];
-        var during = 65;
-        var capture = captureScreen();
-        if (!capture) {
-            sleep(50);
-            return points;
-        }
-        for (var i = 0;i < len;i++) {
-            var color = this.colors[i];
-            var point = findColorEquals(capture, color, 0, 0, WIDTH, HEIGHT);
-            if (point !== null) {
-                points.push([0, during, [point.x, point.y]]);
+        var wait_time = 100;
+        for (var time = 0;time < this.find_time;time += wait_time) {
+            for (var i = 0;i < len;i++) {
+                var capture = captureScreen();
+                if (!capture) {
+                    sleep(50);
+                    continue;
+                }
+                var color = this.colors[i];
+                var point = findColorEquals(capture, color, 0, 0, WIDTH, HEIGHT);
+                if (point !== null) {
+                    return point;
+                }
             }
         }
 
-        return points;
+        return null;
     };
 }

@@ -75,7 +75,7 @@ function WeChatSport(robot, options) {
 
     this.launch = function () {
         toastLog("即将进入微信运动，按Home键停止");
-        this.step = this.btns1.length - 1;
+        this.step = this.btns1.length;
         if (this.doLaunch(this.btns1)) {
             return true;
         }

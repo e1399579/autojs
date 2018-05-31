@@ -90,6 +90,8 @@ function start(options) {
         var Secure = require("Secure.js");
         var secure = new Secure(robot, options.max_retry_times);
         secure.openLock(options.password, options.pattern_size);
+        // 拉起到前台界面
+        antForest.openApp();
     }
 
     antForest.launch();
@@ -136,6 +138,8 @@ function AntForest(robot, options) {
     this.state = {};
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
+    
+    toastLog("即将收取能量，按音量上键停止");
 
     this.saveState = function (isScreenOn) {
         this.state.isScreenOn = isScreenOn;
@@ -161,8 +165,6 @@ function AntForest(robot, options) {
     };
 
     this.openApp = function () {
-        toastLog("即将收取能量，按音量上键停止");
-
         launch(this.package);
     };
 
@@ -245,7 +247,7 @@ function AntForest(robot, options) {
     };
 
     this.getPower = function () {
-        var energy= id("tree_energy").findOnce() || descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce();
+        var energy= descMatches(/\d+g/).findOnce();
         return energy ? parseInt(energy.contentDescription) : null;
     };
 
@@ -458,11 +460,11 @@ function AntForest(robot, options) {
      * 收取能量
      */
     this.take = function () {
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
-        var filters = forest.find(className("android.widget.Button").filter(function (o) {
+        var filters = className("android.widget.Button").filter(function (o) {
             var desc = o.contentDescription;
+            
             return (null !== desc.match(/^收集能量|^$/));
-        }));
+        }).find();
 
         var num = filters.length;
         log("找到" + num + "个能量球");
@@ -487,11 +489,10 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function () {
         var list = [];
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOnce().parent();
-        forest.find(className("android.widget.Button").filter(function (o) {
+        className("android.widget.Button").filter(function (o) {
             var desc = o.contentDescription;
-            return (null !== desc.match(/才能收取$|^$/));
-        })).forEach(function (o) {
+            return (null !== desc.match(/才能收取$/));
+        }).find().forEach(function (o) {
             var rect = o.bounds();
             list.push([rect.centerX(), rect.centerY()]);
         }.bind(this));
