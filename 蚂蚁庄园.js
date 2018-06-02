@@ -4,11 +4,18 @@
  */
 auto(); // 自动打开无障碍服务
 
-var options ={
+var config = files.isFile("config.js") ? require("config.js") : {};
+if (typeof config !== "object") {
+    config = {};
+}
+
+var options = Object.assign({
+    password: "",
+    pattern_size: 3,
     max_retry_times: 10,    // 最大失败重试次数
     timeout: 12000,         // 超时时间：毫秒
     forage_min: 180,        // 每次喂食的饲料数量
-}; 
+}, config); // 用户配置合并
 
 // 所有操作都是竖屏
 const WIDTH = Math.min(device.width, device.height);
@@ -80,6 +87,20 @@ function start(options) {
         antForest.openApp();
     });
 
+    if (files.exists("Secure.js")) {
+        var Secure = require("Secure.js");
+        var secure = new Secure(robot, options.max_retry_times);
+        if(!secure.openLock(options.password, options.pattern_size)){
+            storages.remove(source);
+            toastLog("停止脚本");
+            engines.stopAll();
+            exit();
+        }else{
+            // 拉起到前台界面 
++           antForest.openApp(); 
+        }
+    }
+    
     antForest.launch();
     antForest.drive();      // 驱赶
     //antForest.getForage();  // 获取饲料

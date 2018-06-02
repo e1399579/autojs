@@ -13,7 +13,7 @@ function Secure(robot, max_retry_times) {
 
         switch (true) {
             case !isNaN(parseInt(shell("getprop ro.miui.ui.version.code").result)):
-                secure = new NativeSecure(this);
+                secure = new MIUISecure(this);
                 break;
             default:
                 secure = new NativeSecure(this);
@@ -65,9 +65,6 @@ function Secure(robot, max_retry_times) {
 
     this.failed = function () {
         KeyCode("KEYCODE_POWER");
-        engines.stopAll();
-        toastLog("解锁失败，退出脚本！");
-        exit();
         return false;
     };
 
@@ -198,8 +195,10 @@ function MIUISecure(secure) {
     this.__proto__ = secure;
 
     this.hasLayer = function () {
-        return id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists()
-        || id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").exists();
+        return id("com.android.keyguard:id/unlock_screen_sim_card_info").exists() 
+        || id("com.android.keyguard:id/miui_unlock_screen_digital_clock").exists() 
+        || id("com.android.keyguard:id/miui_porch_notification_and_music_control_container").exists()
+        || id("com.android.keyguard:id/notification_message_view").exists();
     };
 
     this.unlock = function (password, pattern_size) {

@@ -91,8 +91,13 @@ function start(options) {
         var Secure = require("Secure.js");
         var secure = new Secure(robot, options.max_retry_times);
         if(!secure.openLock(options.password, options.pattern_size)){
+            storages.remove(source);
+            toastLog("停止脚本");
             engines.stopAll();
             exit();
+        }else{
+            // 拉起到前台界面 
++           antForest.openApp(); 
         }
     }
 
@@ -141,6 +146,8 @@ function AntForest(robot, options) {
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
 
+    toastLog("即将收取能量，按音量上键停止");
+
     this.saveState = function (isScreenOn) {
         this.state.isScreenOn = isScreenOn;
         this.state.currentPackage = currentPackage(); // 当前运行的程序
@@ -165,8 +172,6 @@ function AntForest(robot, options) {
     };
 
     this.openApp = function () {
-        toastLog("即将收取能量，按音量上键停止");
-
         launch(this.package);
     };
 
@@ -234,7 +239,7 @@ function AntForest(robot, options) {
     this.waitForLoading = function (keyword) {
         var timeout = this.options.timeout;
         var waitTime = 200;
-        sleep(2000);
+        sleep(1000);
         timeout -= 2000;
         for (var i = 0; i < timeout; i += waitTime) {
             if (desc(keyword).exists()) {
@@ -254,7 +259,7 @@ function AntForest(robot, options) {
     };
 
     this.work = function () {
-        sleep(1000);
+        sleep(500);
         this.robot.click(WIDTH / 2, 510);
         var timeout = this.options.timeout;
         var startPower = this.getPower();
@@ -292,7 +297,7 @@ function AntForest(robot, options) {
         // 跳过当前屏幕
         var y = Math.min(HEIGHT, 1720);
         this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
-        sleep(500);
+        sleep(200);
         log("开始收取好友能量");
         
         var total = 0;
@@ -324,7 +329,7 @@ function AntForest(robot, options) {
                     // 跳过第一屏
                     var y = Math.min(HEIGHT, 1720);
                     this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
-                    sleep(500);
+                    sleep(700);
 
                     var page, min_minute, swipe_sleep = 500;
                     for (;;) {
@@ -366,16 +371,16 @@ function AntForest(robot, options) {
                         }.bind(this), "prev");
                     }
                     
-                    toastLog("返回");
+                    //toastLog("返回");
                     this.back();
                   
-                    sleep(1000);
+                    sleep(500);
                     
                     // 向上翻屏
-                    toastLog("向上翻屏");
+                    //toastLog("向上翻屏");
                     this.scrollUp();
                     
-                    toastLog("等待主页");
+                    //Log("等待主页");
                     this.waitForLoading("合种");
                 } else {
                     toastLog("进入好友排行榜失败");
@@ -396,7 +401,7 @@ function AntForest(robot, options) {
 
         this.back();
         toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
-        sleep(1500);
+        sleep(1000);
 
         // 统计部分，可以删除
         var timeList = this.getTimeList(minuteList);
@@ -481,38 +486,22 @@ function AntForest(robot, options) {
 		this.notifyTasker(nextTime);
 		
 	};
-	
-    /**
+	/**
      * 收取能量
      */
     this.take = function () {
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH * 0.6, 0, WIDTH, 340).findOne(2000);
-        if(forest){
-            forest =  forest.parent();
-            var points =[];
-            
-            // 这种方式只能用于收取自己的能量
-            var filters = forest.find(className("android.widget.Button").filter(function (o) {
-                var desc = o.contentDescription;
-                return (null !== desc.match(/^收集能量|^$/));
-            }));
-            filters.forEach(function(o) {
-                var rect = o.bounds();
-                points.push([rect.centerX(), rect.centerY()]);
-            });
+        var filters = className("android.widget.Button").filter(function (o) {
+            var desc = o.contentDescription;
+            log(desc);
+            return (null !== desc.match(/^收集能量|^$/));
+        }).find();
 
-            // "搜索“可收取”的标签，此标签在按钮的下方,
-            // 这种方式只能用于收取好友的能量
-            descContains("可收取").find().forEach(function(tv){
-                points.push([tv.bounds().centerX(), tv.bounds().centerY() - 100]);
-            });
+        var num = filters.length;
 
-            var num = points.length;
-            log("找到" + num + "个能量球");
-            sleep(100 * num);
-    
-            this.robot.clickMulti(points);
-        }
+        log("找到" + num + "个能量球");
+        sleep(10 * num);
+
+        this.robot.clickMultiCenter(filters);
         this.autoBack();
     };
 
@@ -530,17 +519,13 @@ function AntForest(robot, options) {
      */
     this.getRemainList = function () {
         var list = [];
-        var forest = descMatches(/\d+g/).boundsInside(WIDTH / 2, 0, WIDTH, 340).findOne(2000);
-        if(forest){
-            forest = forest.parent();        
-            forest.find(className("android.widget.Button").filter(function (o) {
-                var desc = o.contentDescription;
-                return (null !== desc.match(/才能收取$|^$/));
-            })).forEach(function (o) {
-                var rect = o.bounds();
-                list.push([rect.centerX(), rect.centerY()]);
-            }.bind(this));
-        }
+        className("android.widget.Button").filter(function (o) {
+            var desc = o.contentDescription;
+            return (null !== desc.match(/才能收取$/));
+        }).find().forEach(function (o) {
+            var rect = o.bounds();
+            list.push([rect.centerX(), rect.centerY()]);
+        }.bind(this));
         return list;
     };
 
