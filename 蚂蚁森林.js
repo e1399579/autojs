@@ -492,7 +492,6 @@ function AntForest(robot, options) {
     this.take = function () {
         var filters = className("android.widget.Button").filter(function (o) {
             var desc = o.contentDescription;
-            log(desc);
             return (null !== desc.match(/^收集能量|^$/));
         }).find();
 

@@ -149,6 +149,8 @@ function AntForest(robot, options) {
     };
 
     this.resumeState = function () {
+        log(this.state.currentPackage);
+        log(this.package)
         if (this.state.currentPackage !== this.package) {
             this.back(); // 回到之前运行的程序
             sleep(1500);
@@ -214,9 +216,9 @@ function AntForest(robot, options) {
 
         // 等待加载
         if (this.waitForLoading("星星球")) {
-            log("进入蚂蚁森林成功");
+            log("进入蚂蚁庄园成功");
         } else {
-            toastLog("进入蚂蚁森林失败");
+            toastLog("进入蚂蚁庄园失败");
             return false;
         }
 
@@ -267,7 +269,9 @@ function AntForest(robot, options) {
             log("饲料不足，喂不了了...");
         }
             
-		toastLog("喂食完毕！");
+        toastLog("喂食完毕！");
+        this.back();
+        sleep(1000);
 	}
     
     // 驱赶
