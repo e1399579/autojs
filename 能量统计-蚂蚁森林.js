@@ -144,6 +144,7 @@ function AntForest(robot, options) {
     this.state = {};
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
+    this.timeHandle = new timeStringHandle();
 
     toastLog("即将收取能量，按音量上键停止");
 
@@ -257,7 +258,7 @@ function AntForest(robot, options) {
         // 寻找大树养成的入口按钮，参见图片（\图片识别\大树养成记录入口.jpg）
         var btnHome = boundsContains(772,285,WIDTH - 772, HEIGHT - 285).depth(7).className("android.view.View").findOne(5000);
         if(btnHome){
-            btnHome.click();
+            btnHome.click();   
             // 等待进入大树养成记录页
             var title = "大树养成记录";
             if (this.waitForLoading("返回")) {
@@ -297,16 +298,16 @@ function AntForest(robot, options) {
 
         log("开始获取能量历史..."); 
         var tc = 0;
-        this.takeGrowUpRecord(2000,function(currentTakeTime){
-            if(tc == 1){
+        this.takeGrowUpRecord(500,function(currentTakeTime){
+            if(tc == 1000){
                 return true;
             }
             tc ++;
             // if(currentTakeTime < remoteLastRecordTime){
             //     return ture;     
             // }
-        });
-        
+        }); 
+     
         exit();
         this.back();
         sleep(1000);
@@ -315,7 +316,7 @@ function AntForest(robot, options) {
     // 从大树成长记录页中，读取能量记录
     this.takeGrowUpRecord = function(swipe_sleep, isEndFunc,scroll){
         var row = (192 * (HEIGHT / 1920)) | 0;
-        var recordCount = 0;    //记录的数量
+        var buttomTag = 0;    // 记录本次最后找到的能量记录位置，用于去掉重复的能量记录
         var x1, y1, x2, y2;
         x2 = x1 = WIDTH / 2;
         switch (scroll) {
@@ -329,46 +330,35 @@ function AntForest(robot, options) {
                 y2 = HEIGHT - row;
                 break;
         }
-        // while (1) {
-            this.takeGrowUpRecordFromImage();
-            // if (isEndFunc()) {
-            //     break;
-            // }
+
+        while (1) {
+            buttomTag = this.takeGrowUpRecordFromImage(buttomTag);
+                
+            if (isEndFunc()) {
+                break;
+            }
             sleep(swipe_sleep); // 等待滑动动画
             this.robot.swipe(x1, y1, x2, y2,swipe_sleep);
             sleep(swipe_sleep); // 等待滑动动画
-            this.takeGrowUpRecordFromImage();
-        // }
+        }
     }
 
     // 截图并从图中读取能量的记录
-    this.takeGrowUpRecordFromImage = function(){
-        var listview = descMatches(/\d+g/).boundsInside(0, 204, WIDTH, 700).find();
-        log(listview.length);
-        for(var i= 0; i < listview.length; i++){
-            var c = listview[i];
-            var parent = c.parent();
-            log("%s, %s, %s", parent.child(2).desc(),  parent.child(3).desc() ,c.desc());
-            //log(c.desc() + " " + c.indexInParent());
+    this.takeGrowUpRecordFromImage = function(buttom){
+        var parentView;
+        var listview = descMatches(/\d+g/).find();
+        for(var i= 0; i < listview.length - 1; i++){
+            parentView = listview[i].parent();
+            if(parentView.boundsInParent().bottom <= buttom || parentView.childCount() != 5){
+                continue;
+            }                                                                                           
+            var target = parentView.child(2).desc().replace(/收取/,"");
+            var time = this.timeHandle.execute(parentView.child(3).desc());
+            var amount = parentView.child(4).desc().replace(/g/,"");
+            log("%s, %s（%s）, %s", target, time, parentView.child(3).desc(), amount);
         }
-        listview = [];
+        return parentView.boundsInParent().bottom;
     }
-
-    // // 截图并从图中读取能量的记录
-    // this.takeGrowUpRecordFromImage = function(){
-    //     var listview = className("android.view.View").boundsInside(0, 204, WIDTH, HEIGHT).depth(6).filter(function(o){
-    //         return (o.childCount() == 5 && o.clickable());
-    //     }).find();
-    //     log(listview.length);
-    //     var l = listview.length / 3;
-    //     log(l);
-    //     for(var i= 0; i < l; i++){
-    //         var c = listview[i];
-    //         log("%s %s %s %o", c.child(2).desc(), c.child(3).desc(), c.child(4).desc(),c.child(2).bounds());
-    //         //log(c.desc() + " " + c.indexInParent());
-    //     }
-    //     listview = [];
-    // }
 
     // 从远程服务器获取当前支付宝账号的最后一条能量记录时间
     // 如果服务器中没有记录，则会返回7天前的时间点
@@ -378,35 +368,6 @@ function AntForest(robot, options) {
         date.setMinutes(date.getDay() - 7);
         return date; 
     }
-    
-    this.executeNextTask = function () {
-        var date = new Date();
-        var timestamp = date.getTime();
-        var today = date.toDateString();
-        var max_time = today + " " + this.options.max_time;
-        var max_timestamp = Date.parse(max_time);
-        return (timestamp > max_timestamp);
-    };
-
-    this.notifyTasker = function (time) {
-        app.sendBroadcast({
-            action: "net.dinglisch.android.tasker.ActionCodes.RUN_SCRIPT",
-            extras: {
-                name: "蚂蚁森林",
-                time: time
-            }
-        });
-        log("已发送Tasker任务：" + time);
-    };
-
-	// 发送广播，延迟40分钟启动下一次任务
-	this.notifyDelayTasker = function(){				
-		var date = new Date();
-		date.setMinutes(date.getMinutes() + 40);
-		var nextTime = date.toDateString() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
-		this.notifyTasker(nextTime);
-		
-    };
     
     this.autoBack = function () {
         // 误点了按钮则返回
@@ -420,15 +381,136 @@ function AntForest(robot, options) {
     this.back = function () {
         back();
     };
-    
-    this.scrollUp = function () {
-        var y = Math.min(HEIGHT, 1500);
-        for(var i=0; i<5; i++){
-            this.robot.swipe(WIDTH / 2, 400, WIDTH / 2, y);
-            sleep(100);
-        }
-    }
-	
-
 }
 
+// 时间处理
+function timeStringHandle(){
+
+    this.execute = function(str){
+        var index = str.indexOf("上午");
+        str = str.trim();
+        if(index != -1){
+            return this.morning(str,index);
+        }
+        
+        index = str.indexOf("凌晨");
+        if(index != -1){
+               return this.morning(str,index);
+        }
+        
+        index = str.indexOf("下午");
+        if(index != -1){
+            return this.afternoon(str,index);
+        }
+        
+        index = str.indexOf("晚上");
+        if(index != -1){
+               return this.afternoon(str,index);
+        }
+
+        index = str.indexOf("分钟");
+        if(index != -1){
+            return this.sixtyMinutes(str);
+        }
+        return ""
+    };
+    
+    /* 
+        处理上午与凌晨格式的时间字符串
+        eg:
+            昨天 上午7:12
+            上午7:10
+            06-19 上午7:12
+            昨天 凌晨0:34
+            凌晨0:34
+            06-19 凌晨0:34 
+    */
+    this.morning = function(str,i){
+        var myDate = new Date();
+        switch(i){
+            case 0: // 上午7:10
+                var s = myDate.toDateString() + " " + str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var z = Date.parse(s);
+                return z;
+            case 6: // 06-19 上午7:12
+                var s = "2018-" + str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var z = Date.parse(s);
+                return z;
+            case 11:// 2018-06-10 上午7:12
+                var s = str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var z = Date.parse(s);
+                return z;
+            case 3: // 昨天 上午7:12
+                myDate.setHours(myDate.getHours() - 24);
+                var s = myDate.toDateString() + " " + str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var z = Date.parse(s);
+                return z;
+        }
+    };
+    
+    /* 
+        处理下午与晚上格式的时间字符串
+        特别处理“下午12:12”，遇到12点的数据，不能加12小时。
+        eg:
+            昨天 下午12:12
+            下午13:10
+            06-19 下午14:12
+            昨天 晚上8:34
+            晚上8:34
+            06-19 晚上8:34
+    */
+    this.afternoon = function(str,i){
+        var myDate = new Date();
+        switch(i){
+            case 0: // 下午12:10
+                var s = myDate.toDateString() + " " + str.replace(/[\u4e00-\u9fa5]/g,"");
+                var r = new Date(Date.parse(s));
+                if(r.getHours() != 12){
+                    r.setHours(r.getHours() + 12);
+                }
+                return r.getTime();
+            case 6: // 06-19 下午12:12
+                var s = "2018-" + str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var r = new Date(Date.parse(s));
+                if(r.getHours() != 12){
+                    r.setHours(r.getHours() + 12);
+                }
+                return r.getTime();
+            case 11:// 2018-06-10 下午12:12
+                var s = str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var r = new Date(Date.parse(s));
+                if(r.getHours() != 12){
+                    r.setHours(r.getHours() + 12);
+                }
+                return r.getTime();
+            case 3: // 昨天 下午12:12
+                myDate.setHours(myDate.getHours() - 24);
+                var s = myDate.toDateString() + " " + str.replace(/[\u4e00-\u9fa5]/g,"");
+                s = s.replace(new RegExp(/-/gm) ,"/");
+                var r = new Date(Date.parse(s));
+                if(r.getHours() != 12){
+                    r.setHours(r.getHours() + 12);
+                }
+                return r.getTime();
+        }
+    };
+
+    /*
+	处理以下时间字符串，60分钟以内的时间
+    eg:
+    	24分钟前
+        59分钟前
+    */
+    this.sixtyMinutes = function(str){
+        var myDate = new Date();
+        myDate.setMinutes(myDate.getMinutes() - parseInt(str));
+        return myDate.getTime();
+    };
+
+}
