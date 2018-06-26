@@ -100,11 +100,12 @@ function start(options) {
         }
     }
 
-    antForest.launch();
+    antForest.launchPersonalCenter();
+    antForest.launchAntForest();
     antForest.work();
     antForest.resumeState();
 
-    // 退出
+    // 退出 
     exit();
 }
 
@@ -145,6 +146,7 @@ function AntForest(robot, options) {
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
     this.timeHandle = new timeStringHandle();
+    this.alipayID = "";         //支付宝账号
 
     toastLog("即将收取能量，按音量上键停止");
 
@@ -179,7 +181,103 @@ function AntForest(robot, options) {
         this.robot.kill(this.package);
     };
 
-    this.launch = function () {
+    //进入个人主页，获取支付宝账号
+    this.launchPersonalCenter = function () {
+        var times = 0;
+        do {
+            if (this.doLaunchPersonalCenter()) {
+                return;
+            } else {
+                times++;
+                this.back();
+                sleep(1500);
+                this.openApp();
+            }
+        } while (times < this.options.max_retry_times);
+
+        toastLog("运行失败");
+        exit();
+    };
+
+    this.doLaunchPersonalCenter = function () {
+        // 可能出现的红包弹框，点击取消
+        var timeout = this.options.timeout;
+        threads.start(function () {
+            var cancelBtn;
+            if (cancelBtn = id("com.alipay.android.phone.wallet.sharetoken:id/btn1").findOne(timeout)) {
+                cancelBtn.click();
+            }
+        });
+        //等同于 className("android.widget.TextView").text("我的").findOne(timeout)
+        var home = id("com.alipay.android.phone.wealth.home:id/tab_description").text("我的").findOne(timeout);
+        if (!home) {
+            toastLog("进入“我的”失败");
+            return false;
+        }
+        home.parent().click();
+
+        var btn = id("com.alipay.android.phone.wealth.home:id/user_account").findOne(timeout);
+        if (!btn) {
+            toastLog("查找第一级个人主页失败");
+            return false;
+        }
+        
+        if (!(btn.parent() && btn.parent().click())) {
+            toastLog("点击第一级个人主页失败");
+            return false;
+        }
+        
+        // 等待加载进入个人账号
+        // 等同于 className("android.widget.TextView").text("个人信息").findOne(timeout))
+        if(!id("com.alipay.mobile.ui:id/title_bar_title").text("个人信息").findOne(timeout)){
+            return false;
+        }
+
+        // 进入个人主页
+        // 等同于 className("android.widget.TextView").text("个人主页").findOne(timeout)
+        btn = id("com.alipay.mobile.antui:id/item_left_text").text("个人主页").findOne(timeout);
+        if(!btn){
+            toastLog("查找第二级个人主页失败");
+            return false;
+        }
+        btn.parent().click();
+
+        if (this.waitForLoading("更多设置")) {
+            // toastLog("进入第二级个人主页成功");
+        } else {
+            toastLog("进入第二级个人主页失败");
+            return false;
+        }
+        
+        if(!this.getPersonalID()){
+            return false;
+        }
+        sleep(500);
+        this.back();
+        sleep(500);
+        this.back();
+
+        return true;
+    };
+
+    /*
+        在第二级个人主页中获取支付宝账号
+    */
+    this.getPersonalID = function(){
+        var timeout = this.options.timeout;
+
+        var alipayID = id("com.alipay.android.phone.wallet.profileapp:id/tv_right").findOne(timeout);
+        this.alipayID = alipayID.text().trim();
+        log("当前支付宝账号：%s", this.alipayID);
+        if(!alipayID){
+            return false;
+        }
+
+        return true;
+    };
+    
+    // 进入蚂蚁森林
+    this.launchAntForest = function () {
         var times = 0;
         do {
             if (this.doLaunch()) {
@@ -219,12 +317,12 @@ function AntForest(robot, options) {
             toastLog("查找蚂蚁森林按钮失败");
             return false;
         }
-        log("点击按钮");
+
         if (!(btn.parent() && btn.parent().click())) {
             toastLog("点击蚂蚁森林失败");
             return false;
         }
-
+        
         // 等待加载
         if (this.waitForLoading("合种")) {
             log("进入蚂蚁森林成功");
