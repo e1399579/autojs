@@ -25,6 +25,15 @@ start(options);
  * @param options
  */
 function start(options) {
+    checkModule();
+
+    var Robot = require("Robot.js");
+    var robot = new Robot(options.max_retry_times);
+    var antForest = new AntForest(robot, options);
+    antForest.saveState();
+    
+    device.wakeUpIfNeeded();
+    
     // 连续运行处理
     var source = "antForest";
     //storages.remove(source);exit();
@@ -57,6 +66,7 @@ function start(options) {
         }
     });
     while (1) {
+        device.wakeUpIfNeeded();
         var waiting = stateStorage.get("running").indexOf(no);
         if (waiting > 0) {
             log("任务" + no + "排队中，前面有" + waiting + "个任务");
@@ -67,22 +77,8 @@ function start(options) {
         }
     }
 
-    var isScreenOn = device.isScreenOn(); // 屏幕是否点亮
-    if (!isScreenOn) {
-        log("唤醒");
-        device.wakeUp();
-        sleep(500);
-    }
-
-    this.checkModule();
-
-    var Robot = require("Robot.js");
-    var robot = new Robot(options.max_retry_times);
-    var antForest = new AntForest(robot, options);
-
     // 先打开APP，节省等待时间
     threads.start(function () {
-        antForest.saveState(isScreenOn);
         antForest.openApp();
     });
 
@@ -141,8 +137,8 @@ function AntForest(robot, options) {
     
     toastLog("即将收取能量，按音量上键停止");
 
-    this.saveState = function (isScreenOn) {
-        this.state.isScreenOn = isScreenOn;
+    this.saveState = function () {
+        this.state.isScreenOn = device.isScreenOn();
         this.state.currentPackage = currentPackage(); // 当前运行的程序
         this.state.isRunning = IS_ROOT ? parseInt(shell("ps | grep 'AlipayGphone' | wc -l", true).result) : 0; // 支付宝是否运行
         this.state.version = context.getPackageManager().getPackageInfo(this.package, 0).versionName;
@@ -513,7 +509,7 @@ function AntForest(robot, options) {
         if ((min_timestamp <= now) && (now <= max_timestamp)) {
             toastLog("开始检测剩余能量");
             var millisecond = max_timestamp - now;
-            var step_time = 94;
+            var step_time = 0;
             var use_time = step_time + 156 * len;
             for (var i = 0;i <= millisecond;i += use_time) {
                 this.robot.clickMulti(list);

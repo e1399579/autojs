@@ -47,6 +47,8 @@
     数据(Data)：`file:///storage/emulated/0/脚本/蚂蚁森林.js`  
     包名(PackageName)：`com.stardust.scriptdroid`  
     类名(ClassName)：`com.stardust.scriptdroid.external.open.RunIntentActivity`
+
+    注意：Auto.js 4.0以上，包名(PackageName)：`org.autojs.autojs`，类名(ClassName)：`org.autojs.autojs.external.open.RunIntentActivity`
 4. 返回到任务界面，点击右上角应用(√)按钮生效
 5. 在配置文件栏，新增定时任务。依次点击 添加(+)>时间，来到时间修改界面
 6. 选择时间段，结束与开始时间相同
@@ -74,4 +76,4 @@
 ## 软件测试结果：
 1. 魔趣7.1系统正常，偶尔出现崩溃情况，依赖于Auto.js.apk稳定性
 2. Sony D6633 6.0系统打开会出现“系统界面已停止运行”，请不要使用
-3. 红米Note 5(MIUI 9)系统正常，无ROOT权限
+3. 红米Note 5(MIUI 9/10)系统正常，无ROOT权限
