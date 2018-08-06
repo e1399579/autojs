@@ -32,7 +32,10 @@ function start(options) {
     var antForest = new AntForest(robot, options);
     antForest.saveState();
     
-    device.wakeUpIfNeeded();
+    while (!device.isScreenOn()) {
+        device.wakeUp();
+        sleep(1000); // 等待屏幕亮起
+    }
     
     // 连续运行处理
     var source = "antForest";

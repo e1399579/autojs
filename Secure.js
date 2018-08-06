@@ -12,7 +12,6 @@ function Secure(robot, max_retry_times) {
         var secure;
 
         var miui_match = shell("getprop ro.miui.ui.version.name").result.match(/\d+/);
-        var miui_ver = miui_match[0];
         switch (true) {
             case (miui_match !== null):
                 if (miui_match[0] === '10') {
@@ -78,8 +77,8 @@ function Secure(robot, max_retry_times) {
 
     this.openLayer = function () {
         var x = WIDTH / 2;
-        var y = HEIGHT - 300;
-        this.robot.swipe(x, y, x, 300, 500);
+        var y = HEIGHT - 200;
+        this.robot.swipe(x, y, x, HEIGHT / 2, 500);
         sleep(1500); // 等待动画
     };
 
@@ -261,7 +260,8 @@ function MIUI10Secure(secure) {
         return id("com.android.systemui:id/awesome_lock_screen_container").exists() 
         || id("com.android.systemui:id/notification_container_parent").exists() 
         || id("com.android.systemui:id/keyguard_header").exists()
-        || id("com.android.systemui:id/keyguard_carrier_text").exists();
+        || id("com.android.systemui:id/keyguard_carrier_text").exists()
+        || id("com.android.systemui:id/notification_panel").exists();
     };
 
     this.unlock = function (password, pattern_size) {
