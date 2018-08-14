@@ -39,66 +39,36 @@ function start(options) {
     
     // 连续运行处理
     var source = "antForest";
-    //storages.remove(source);exit();
-    var stateStorage = storages.create(source);
-    var running = stateStorage.get("running", []);
-    var no = running.length ? running[running.length - 1] + 1 : 1;
-    running.push(no);
-    log(running);
-    stateStorage.put("running", running);
-    // 子线程监听音量上键
-    threads.start(function () {
-        events.observeKey();
-        events.onceKeyDown("volume_up", function (event) {
-            storages.remove(source);
-            toastLog("停止脚本");
-            engines.stopAll();
-            exit();
+    var taskManager = new TaskManager(source);
+    taskManager.init();
+    taskManager.listen();
+    taskManager.waitFor();
+
+    try {
+        // 先打开APP，节省等待时间
+        threads.start(function () {
+            antForest.openApp();
         });
-    });
-    // 监听退出事件
-    events.on("exit", function () {
-        running = stateStorage.get("running", []);
-        var index = running.indexOf(no);
-        running.splice(index, 1);
-        log(running);
-        if (!running.length) {
-            storages.remove(source);
-        } else {
-            stateStorage.put("running", running);
+
+        if (files.exists("Secure.js")) {
+            var Secure = require("Secure.js");
+            var secure = new Secure(robot, options.max_retry_times);
+            secure.openLock(options.password, options.pattern_size);
+            // 拉起到前台界面
+            antForest.openApp();
         }
-    });
-    while (1) {
-        device.wakeUpIfNeeded();
-        var waiting = stateStorage.get("running").indexOf(no);
-        if (waiting > 0) {
-            log("任务" + no + "排队中，前面有" + waiting + "个任务");
-            sleep(15000);
-        } else {
-            log("任务" + no + "开始运行");
-            break;
-        }
+
+        antForest.launch();
+        antForest.work();
+        antForest.resumeState();
+
+        // 退出
+        taskManager.exit();
+        exit();
+    } catch (e) {
+        log(e.message);
+        taskManager.exit();
     }
-
-    // 先打开APP，节省等待时间
-    threads.start(function () {
-        antForest.openApp();
-    });
-
-    if (files.exists("Secure.js")) {
-        var Secure = require("Secure.js");
-        var secure = new Secure(robot, options.max_retry_times);
-        secure.openLock(options.password, options.pattern_size);
-        // 拉起到前台界面
-        antForest.openApp();
-    }
-
-    antForest.launch();
-    antForest.work();
-    antForest.resumeState();
-
-    // 退出
-    exit();
 }
 
 /**
@@ -112,6 +82,68 @@ function checkModule() {
     if (!files.exists("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
         throw new Error("缺少Secure.js文件，请核对第一条");
     }
+}
+
+function TaskManager(source) {
+    this.source = source;
+    this.stateStorage = storages.create(source);
+    this.task_no = 0;
+
+    this.init = function () {
+        var running = this.stateStorage.get("running", []);
+        this.task_no = running.length ? running[running.length - 1] + 1 : 1;
+        running.push(this.task_no);
+        log(running);
+        this.stateStorage.put("running", running);
+    }.bind(this);
+
+    this.listen = function() {
+        var _this = this;
+        // 子线程
+        threads.start(function () {
+            // 监听退出事件
+            //events.on("exit", _this.exit);
+
+            // 监听音量上键
+            events.observeKey();
+            events.onceKeyDown("volume_up", function (event) {
+                storages.remove(_this.source);
+                toastLog("停止脚本");
+                engines.stopAll();
+                exit();
+            });
+        });
+    }.bind(this);
+
+    this.waitFor = function () {
+        while (1) {
+            device.wakeUpIfNeeded();
+            var waiting = this.stateStorage.get("running").indexOf(this.task_no);
+            if (waiting > 0) {
+                log("任务" + this.task_no + "排队中，前面有" + waiting + "个任务");
+                sleep(15000);
+            } else {
+                log("任务" + this.task_no + "开始运行");
+                break;
+            }
+        }
+    }.bind(this);
+    
+    this.exit = function () {
+        var running = this.stateStorage.get("running", []);
+        var index = running.indexOf(this.task_no);
+        running.splice(index, 1);
+        log(running);
+        if (!running.length) {
+            storages.remove(this.source);
+        } else {
+            this.stateStorage.put("running", running);
+        }
+    }.bind(this);
+
+    this.clear = function () {
+        storages.remove(this.source);
+    }.bind(this);
 }
 
 /**
