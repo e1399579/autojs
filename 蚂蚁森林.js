@@ -38,37 +38,31 @@ function start(options) {
     }
     
     // 连续运行处理
-    var source = "antForest";
-    var taskManager = new TaskManager(source);
+    var taskManager = new TaskManager();
     taskManager.init();
     taskManager.listen();
     taskManager.waitFor();
 
-    try {
-        // 先打开APP，节省等待时间
-        threads.start(function () {
-            antForest.openApp();
-        });
+    // 先打开APP，节省等待时间
+    threads.start(function () {
+        antForest.openApp();
+    });
 
-        if (files.exists("Secure.js")) {
-            var Secure = require("Secure.js");
-            var secure = new Secure(robot, options.max_retry_times);
-            secure.openLock(options.password, options.pattern_size);
-            // 拉起到前台界面
-            antForest.openApp();
-        }
-
-        antForest.launch();
-        antForest.work();
-        antForest.resumeState();
-
-        // 退出
-        taskManager.exit();
-        exit();
-    } catch (e) {
-        log(e.message);
-        taskManager.exit();
+    if (files.exists("Secure.js")) {
+        var Secure = require("Secure.js");
+        var secure = new Secure(robot, options.max_retry_times);
+        secure.openLock(options.password, options.pattern_size);
+        // 拉起到前台界面
+        antForest.openApp();
     }
+
+    antForest.launch();
+    antForest.work();
+    antForest.resumeState();
+
+    // 退出
+    exit();
+    throw new Error("强制退出");
 }
 
 /**
@@ -84,31 +78,31 @@ function checkModule() {
     }
 }
 
-function TaskManager(source) {
-    this.source = source;
-    this.stateStorage = storages.create(source);
+function TaskManager() {
     this.task_no = 0;
+    this.time_tag = "start_time";
+    this.wait_time = 15000;
 
     this.init = function () {
-        var running = this.stateStorage.get("running", []);
-        this.task_no = running.length ? running[running.length - 1] + 1 : 1;
-        running.push(this.task_no);
-        log(running);
-        this.stateStorage.put("running", running);
+        engines.myEngine().setTag(this.time_tag, (new Date()).getTime());
+
+        var task_list = this.getTaskList();
+        this.task_no = task_list.indexOf(engines.myEngine());
+        log(Object.keys(task_list));
+    }.bind(this);
+
+    this.getTaskList = function () {
+        return engines.all().sort(function(e1, e2) {
+            return e1.getTag(this.time_tag) - e2.getTag(this.time_tag);
+        }.bind(this));
     }.bind(this);
 
     this.listen = function() {
-        var _this = this;
         // 子线程
         threads.start(function () {
-            // 监听退出事件
-            //events.on("exit", _this.exit);
-
             // 监听音量上键
             events.observeKey();
             events.onceKeyDown("volume_up", function (event) {
-                storages.remove(_this.source);
-                toastLog("停止脚本");
                 engines.stopAll();
                 exit();
             });
@@ -118,31 +112,16 @@ function TaskManager(source) {
     this.waitFor = function () {
         while (1) {
             device.wakeUpIfNeeded();
-            var waiting = this.stateStorage.get("running").indexOf(this.task_no);
-            if (waiting > 0) {
-                log("任务" + this.task_no + "排队中，前面有" + waiting + "个任务");
-                sleep(15000);
+            
+            var task_no = this.getTaskList().indexOf(engines.myEngine());
+            if (task_no > 0) {
+                log("任务" + this.task_no + "排队中，前面有" + task_no + "个任务");
+                sleep(this.wait_time);
             } else {
                 log("任务" + this.task_no + "开始运行");
                 break;
             }
         }
-    }.bind(this);
-    
-    this.exit = function () {
-        var running = this.stateStorage.get("running", []);
-        var index = running.indexOf(this.task_no);
-        running.splice(index, 1);
-        log(running);
-        if (!running.length) {
-            storages.remove(this.source);
-        } else {
-            this.stateStorage.put("running", running);
-        }
-    }.bind(this);
-
-    this.clear = function () {
-        storages.remove(this.source);
     }.bind(this);
 }
 
@@ -216,8 +195,7 @@ function AntForest(robot, options) {
             }
         } while (times < this.options.max_retry_times);
 
-        toastLog("运行失败");
-        exit();
+        throw new Error("运行失败");
     };
 
     this.doLaunch = function () {
@@ -300,8 +278,7 @@ function AntForest(robot, options) {
 
         var icon = images.read(this.options.takeImg);
         if (null === icon) {
-            toastLog("缺少图片文件，请仔细查看使用方法的第一条！！！");
-            exit();
+            throw new Error("缺少图片文件，请仔细查看使用方法的第一条！！！");
         }
         // 截图权限申请
         threads.start(function () {
@@ -315,8 +292,7 @@ function AntForest(robot, options) {
             }
         });
         if (!requestScreenCapture(false)) {
-            toastLog("请求截图失败");
-            exit();
+            throw new Error("请求截图失败");
         }
 
         // 跳过当前屏幕
