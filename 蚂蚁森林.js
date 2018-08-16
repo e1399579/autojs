@@ -89,13 +89,13 @@ function TaskManager() {
         var task_list = this.getTaskList();
         this.task_no = task_list.indexOf(engines.myEngine());
         log(Object.keys(task_list));
-    }.bind(this);
+    };
 
     this.getTaskList = function () {
         return engines.all().sort(function(e1, e2) {
             return e1.getTag(this.time_tag) - e2.getTag(this.time_tag);
         }.bind(this));
-    }.bind(this);
+    };
 
     this.listen = function() {
         // 子线程
@@ -107,7 +107,7 @@ function TaskManager() {
                 exit();
             });
         });
-    }.bind(this);
+    };
 
     this.waitFor = function () {
         while (1) {
@@ -122,7 +122,7 @@ function TaskManager() {
                 break;
             }
         }
-    }.bind(this);
+    };
 }
 
 /**
@@ -141,13 +141,15 @@ function AntForest(robot, options) {
         max_swipe_times: 100, // 好友列表最多滑动次数
         min_time: "7:14:00", // 检测时段
         max_time: "7:15:50",
-        check_within_time: 5
+        check_within_time: 5,
+        help_img: ""
     };
     this.options = Object.assign(settings, options);
     this.package = "com.eg.android.AlipayGphone"; // 支付宝包名
     this.state = {};
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
+    this.icon_num = 1;
     
     toastLog("即将收取能量，按音量上键停止");
 
@@ -276,10 +278,18 @@ function AntForest(robot, options) {
         var power = this.getPower() - startPower;
         if (power > 0) toastLog("收取了" + power + "g自己的能量");
 
+        var icon_list = [];
         var icon = images.read(this.options.takeImg);
         if (null === icon) {
             throw new Error("缺少图片文件，请仔细查看使用方法的第一条！！！");
         }
+        icon_list = [icon];
+        var icon2;
+        if (this.options.help_img && (icon2 = images.read(this.options.help_img))) {
+            icon_list[1] = icon2;
+        }
+        this.icon_num = icon_list.length;
+
         // 截图权限申请
         threads.start(function () {
             var remember;
@@ -301,9 +311,8 @@ function AntForest(robot, options) {
         sleep(500);
         log("开始收取好友能量");
         
-        var total = 0;
         var bottom = 0;
-        total += this.takeOthers(icon, 500, function () {
+        var total_list = this.takeOthers(icon_list, 500, function () {
             var rect = desc("合种").findOnce().bounds();
 
             if (rect.bottom === bottom) {
@@ -329,11 +338,11 @@ function AntForest(robot, options) {
                     this.robot.swipe(WIDTH / 2, y, WIDTH / 2, 0);
                     sleep(500);
 
-                    var page, min_minute, swipe_sleep = 500;
+                    var page, min_minute, add_total_list, swipe_sleep = 500;
                     for (;;) {
                         log("往下翻页");
                         page = 0;
-                        total += this.takeOthers(icon, swipe_sleep, function () {
+                        add_total_list = this.takeOthers(icon_list, swipe_sleep, function () {
                             /*var selector = desc("没有更多了");
                             if (!selector.exists()) return false;
 
@@ -342,6 +351,7 @@ function AntForest(robot, options) {
                             return (page > this.options.max_swipe_times) 
                             || (findColorEquals(this.capture, "#30BF6C", WIDTH - 300, 0, 200, HEIGHT) !== null);
                         }.bind(this));
+                        this.addTotal(total_list, add_total_list);
 
                         minuteList = this.statisticsNextTime();
                         this.filterMinuteList(minuteList);
@@ -362,11 +372,12 @@ function AntForest(robot, options) {
 
                         log("往上翻页");
                         page = 0;
-                        total += this.takeOthers(icon, swipe_sleep, function () {
+                        add_total_list = this.takeOthers(icon_list, swipe_sleep, function () {
                             page++;
                             return (page > this.options.max_swipe_times) 
                             || (findColorEquals(this.capture, "#EFAE44", 0, 0, 110, HEIGHT / 2) !== null);
                         }.bind(this), "prev");
+                        this.addTotal(total_list, add_total_list);
                     }
 
                     this.back();
@@ -389,7 +400,11 @@ function AntForest(robot, options) {
         added = Math.max(0, added);
 
         this.back();
-        toastLog("收取完毕，共" + total + "个好友，" + added + "g能量");
+        var message = "收取完毕，共" + total_list[0] + "个好友，" + added + "g能量";
+        if (this.icon_num > 1) {
+            message += "，帮了" + total_list[1] + "个好友收取";
+        }
+        toastLog(message);
         sleep(1500);
 
         // 统计部分，可以删除
@@ -404,6 +419,12 @@ function AntForest(robot, options) {
                 var next_time = today + " " + timeList[0];
                 this.notifyTasker(next_time);
             }
+        }
+    };
+
+    this.addTotal = function (total_list, add_total_list) {
+        for (var i = 0; i < this.icon_num; i++) {
+            total_list[i] += add_total_list[i];
         }
     };
 
@@ -535,15 +556,16 @@ function AntForest(robot, options) {
 
     /**
      * 收取好友能量
-     * @param icon
+     * @param icon_list
      * @param isEndFunc
      * @param swipe_sleep
      * @param scroll
-     * @returns {number}
+     * @returns {Array}
      */
-    this.takeOthers = function (icon, swipe_sleep, isEndFunc, scroll) {
+    this.takeOthers = function (icon_list, swipe_sleep, isEndFunc, scroll) {
         var row = (192 * (HEIGHT / 1920)) | 0;
-        var total = 0;
+        var total_list = [];
+        var take_num = icon_list.length;
         var x1, y1, x2, y2;
         x2 = x1 = WIDTH / 2;
         switch (scroll) {
@@ -557,8 +579,14 @@ function AntForest(robot, options) {
                 y2 = HEIGHT - row;
                 break;
         }
+        for (var i = 0; i < take_num; i++) {
+            total_list[i] = 0;
+        }
         while (1) {
-            total += this.takeFromImage(icon);
+            for (var i = 0; i < take_num; i++) {
+                var icon = icon_list[i];
+                total_list[i] += this.takeFromImage(icon);
+            }
 
             if (isEndFunc()) {
                 break;
@@ -568,7 +596,7 @@ function AntForest(robot, options) {
             sleep(swipe_sleep); // 等待滑动动画
         }
 
-        return total;
+        return total_list;
     };
 
     /**

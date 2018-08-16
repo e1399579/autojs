@@ -9,7 +9,8 @@ var default_config = {
     min_time: "7:14:00", // 检测时段
     max_time: "7:15:50",
     max_swipe_times: 100, // 好友列表最多滑动次数
-    check_within_time: 5 // 排行反复检测5分钟以内
+    check_within_time: 5, // 排行反复检测5分钟以内
+    help_img: "" // 帮TA收取用到的图片
 };
 if (typeof config !== "object") {
     config = {};
@@ -23,8 +24,12 @@ function showSettings(options) {
         <frame>
             <vertical h="auto" align="center" w="auto">
                 <linear>
-                    <text w="96" h="*" gravity="right|center" size="16">图片路径</text>
+                    <text w="96" h="*" gravity="right|center" size="16">收取图片路径</text>
                     <input id="takeImg" w="150" h="40" />
+                </linear>
+                <linear>
+                    <text w="96" h="*" gravity="right|center" size="16">爱心图片路径</text>
+                    <input id="help_img" w="150" h="40" />
                 </linear>
                 <linear>
                     <text w="96" h="*" gravity="right|center" size="16">锁屏密码</text>
