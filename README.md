@@ -7,7 +7,7 @@
 ## 设备要求：
 1. 免ROOT权限(安卓7.0以上，与Tasker结合使用) 或 ROOT权限(安卓5.0以上，与Edge或Tasker结合使用)
 2. 安卓5.0或更高版本(需要开启无障碍服务)
-3. Auto.js软件3.1.1 Alpha 5或更高版本
+3. Auto.js软件<font color=gold>4.0.1 Beta或更高版本</font>，下载链接 https://www.coolapk.com/apk/org.autojs.autojs
 
 ## 使用方法：
 1. 将take.png（找图所需，仅适用于1920*1080屏幕。其它机型请自己制作截图，图片应略小于小手范围，10KB以下）、
@@ -25,7 +25,7 @@
     动作如下：  
     唤醒：可选  
     shell命令：勾选【在系统中运行】，内容参考  
-    `am start -n com.stardust.scriptdroid/.external.open.RunIntentActivity -d file:///storage/emulated/0/脚本/蚂蚁森林.js -t text/javascript`
+    `am start -n org.autojs.autojs/.external.open.RunIntentActivity -d file:///storage/emulated/0/脚本/蚂蚁森林.js -t text/javascript`
 2. 添加定时计划，动作是【保存的多重动作】
 3. 若该机型不能正常解锁，可以使用edge录制手势解决，建议多重动作：  
     唤醒  
@@ -45,14 +45,13 @@
     类别(Category)：`Default`  
     Mime类型(MimeType)：`text/javascript`  
     数据(Data)：`file:///storage/emulated/0/脚本/蚂蚁森林.js`  
-    包名(PackageName)：`com.stardust.scriptdroid`  
-    类名(ClassName)：`com.stardust.scriptdroid.external.open.RunIntentActivity`
-
-    注意：Auto.js 4.0以上，包名(PackageName)：`org.autojs.autojs`，类名(ClassName)：`org.autojs.autojs.external.open.RunIntentActivity`
+    包名(PackageName)：`org.autojs.autojs`  
+    类名(ClassName)：`org.autojs.autojs.external.open.RunIntentActivity`
 4. 返回到任务界面，点击右上角应用(√)按钮生效
 5. 在配置文件栏，新增定时任务。依次点击 添加(+)>时间，来到时间修改界面
 6. 选择时间段，结束与开始时间相同
 7. 返回到配置文件界面，选择【蚂蚁森林】任务，点击右上角应用(√)按钮生效
+> 需要Tasker 5.0或更高版本
 
 ## Tasker自动定时启动（建议）步骤：
 1. 下载oneTasker.js，假设脚本路径为`file:///storage/emulated/0/脚本/oneTasker.js`
