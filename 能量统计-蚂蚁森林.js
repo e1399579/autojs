@@ -3,14 +3,18 @@
  * 服务器地址：___
  *  */
 auto(); // 自动打开无障碍服务
+
 var config = files.isFile("config.js") ? require("config.js") : {};
 if (typeof config !== "object") {
     config = {};
 }
 
+var baseURL = "http://192.168.99.116:8082/";
+// var baseURL = "http://api.ant.inner.shengyisoft.com/";
 var options = Object.assign({
-    remoteAPI_Collent: "http://xx",     //采集能量的上报接口
-    remoteAPI_WithCollent: "http://"    //被他人采集的记录上报接口
+    remoteAPI_HealthCheck: baseURL + "health",               //服务状态的健康检查
+    remoteAPI_Collent: baseURL + "v1/%s/collect",            //采集能量的上报接口
+    remoteAPI_WithCollent: baseURL + "v1/%s/withCollent",    //被他人采集的记录上报接口
 }, config); // 用户配置合并
 
 // 所有操作都是竖屏
@@ -20,6 +24,31 @@ const IS_ROOT = files.exists("/sbin/su") || files.exists("/system/xbin/su") || f
 
 setScreenMetrics(WIDTH, HEIGHT);
 start(options);
+
+//TODO 先这样，回头再改单独文件 
+String.prototype.format = function(args) {
+    var result = this;
+    if (arguments.length > 0) {    
+        if (arguments.length == 1 && typeof (args) == "object") {
+            for (var key in args) {
+                if(args[key]!=undefined){
+                    var reg = new RegExp("({" + key + "})", "g");
+                    result = result.replace(reg, args[key]);
+                }
+            }
+        }
+        else {
+            for (var i = 0; i < arguments.length; i++) {
+                if (arguments[i] != undefined) {
+                    //var reg = new RegExp("({[" + i + "]})", "g");//这个在索引大于9时会有问题
+                    var reg = new RegExp("({)" + i + "(})", "g");
+                    result = result.replace(reg, arguments[i]);
+             }
+          }
+       }
+   }
+   return result;
+}
 
 /**
  * 开始运行
@@ -76,6 +105,7 @@ function start(options) {
 
     this.checkModule();
 
+    require("format.min.js");
     var Robot = require("Robot.js");
     var robot = new Robot(options.max_retry_times);
     var antForest = new AntForest(robot, options);
@@ -119,6 +149,10 @@ function checkModule() {
 
     if (!files.exists("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
         throw new Error("缺少Secure.js文件，请核对第一条");
+    }
+
+    if(!files.exists("format.min.js")){
+        throw new Error("缺少format.min.js文件！");
     }
 }
 
@@ -340,7 +374,7 @@ function AntForest(robot, options) {
         sleep(1000);
         timeout -= 2000;
         for (var i = 0; i < timeout; i += waitTime) {
-            if (desc(keyword).exists()) {
+            if (desc(keyword).exists() || text(keyword).exists()) {
                 sleep(1000);
                 return true;
             }
@@ -353,21 +387,14 @@ function AntForest(robot, options) {
 
     // 进入我的大树成长记录
     this.enterTreeGrowUpRecord = function () {
-        // 寻找大树养成的入口按钮，参见图片（\图片识别\大树养成记录入口.jpg）
-        var btnHome = boundsContains(772,285,WIDTH - 772, HEIGHT - 285).depth(7).className("android.view.View").findOne(5000);
-        if(btnHome){
-            btnHome.click();   
-            // 等待进入大树养成记录页
-            var title = "大树养成记录";
-            if (this.waitForLoading("返回")) {
-                title = id("com.alipay.mobile.nebula:id/h5_tv_title").findOne(2000);
-                if(title){
-                    log("成功进入大树成长记录页...");
-                    return true;
-                }
-            }
+        
+        this.robot.click(772,285);
+        // 等待进入大树养成记录页
+        var title = "大树养成记录";
+        if (this.waitForLoading(title)) {
+            log("成功进入大树成长记录页...");
+            return true;
         }
-        return false;
     };
 
     this.work = function () {
@@ -395,15 +422,11 @@ function AntForest(robot, options) {
         sleep(200);
 
         log("开始获取能量历史..."); 
-        var tc = 0;
         this.takeGrowUpRecord(500,function(currentTakeTime){
-            if(tc == 1000){
-                return true;
+            log(currentTakeTime < remoteLastRecordTime);
+            if(currentTakeTime < remoteLastRecordTime){
+                return true;     
             }
-            tc ++;
-            // if(currentTakeTime < remoteLastRecordTime){
-            //     return ture;     
-            // }
         }); 
      
         exit();
@@ -414,7 +437,6 @@ function AntForest(robot, options) {
     // 从大树成长记录页中，读取能量记录
     this.takeGrowUpRecord = function(swipe_sleep, isEndFunc,scroll){
         var row = (192 * (HEIGHT / 1920)) | 0;
-        var buttomTag = 0;    // 记录本次最后找到的能量记录位置，用于去掉重复的能量记录
         var x1, y1, x2, y2;
         x2 = x1 = WIDTH / 2;
         switch (scroll) {
@@ -430,9 +452,8 @@ function AntForest(robot, options) {
         }
 
         while (1) {
-            buttomTag = this.takeGrowUpRecordFromImage(buttomTag);
-                
-            if (isEndFunc()) {
+            var buttomTime = this.takeGrowUpRecordFromList();
+            if (isEndFunc(buttomTime)) {
                 break;
             }
             sleep(swipe_sleep); // 等待滑动动画
@@ -442,29 +463,43 @@ function AntForest(robot, options) {
     }
 
     // 截图并从图中读取能量的记录
-    this.takeGrowUpRecordFromImage = function(buttom){
-        var parentView;
-        var listview = descMatches(/\d+g/).find();
+    this.takeGrowUpRecordFromList = function(){        
+        var lastTime;
+        var data = [];
+        var listview = descMatches(/\d+g/).boundsInside(0, 204, WIDTH, HEIGHT).visibleToUser(true).find();
         for(var i= 0; i < listview.length - 1; i++){
-            parentView = listview[i].parent();
-            if(parentView.boundsInParent().bottom <= buttom || parentView.childCount() != 5){
-                continue;
-            }                                                                                           
-            var target = parentView.child(2).desc().replace(/收取/,"");
-            var time = this.timeHandle.execute(parentView.child(3).desc());
-            var amount = parentView.child(4).desc().replace(/g/,"");
-            log("%s, %s（%s）, %s", target, time, parentView.child(3).desc(), amount);
+            var c = listview[i];
+            var parent = c.parent();
+            // 从界面中获得能量记录                                                                                          
+            var target = parent.child(2).desc().replace(/收取/,"");
+            var time = this.timeHandle.execute(parent.child(3).desc());
+            var amount = c.desc().replace(/g/,"");
+            log("%s, %s（%s）, %s", target, time, parent.child(3).desc(), amount);
+            
+            // 将单条记录添加至数组中，以减少HTTP POST次数
+            var sd = {
+                "target_ant_id" : target,
+                "energy_number" : amount,
+                "collent_time" : time
+            };
+            data.push(sd);
+            lastTime = time;
         }
-        return parentView.boundsInParent().bottom;
+        // 向服务器POST能量记录
+        var pd = {
+            energys : data
+        };
+        //http.postJson(this.options.remoteAPI_Collent.format(this.alipayID), pd);
+        return lastTime;
     }
-
+    
     // 从远程服务器获取当前支付宝账号的最后一条能量记录时间
     // 如果服务器中没有记录，则会返回7天前的时间点
     this.getLastRecordTimeFromRemote = function(){
         //TODO 暂时未去服务器获取，后续要改 
         var date = new Date();
-        date.setMinutes(date.getDay() - 7);
-        return date; 
+        date.setDate(date.getDate() - 7);
+        return date.getTime(); 
     }
     
     this.autoBack = function () {
@@ -612,3 +647,4 @@ function timeStringHandle(){
     };
 
 }
+

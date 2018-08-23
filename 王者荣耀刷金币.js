@@ -2,18 +2,15 @@
  * 王者荣耀刷金币
  */
 auto(); // 自动打开无障碍服务
-var config = files.isFile("config.js") ? require("config.js") : {};
-if (typeof config !== "object") {
-    config = {};
-}
 
-var options = Object.assign({
+var options = {
     repeatTime : 60,        // 重复通过次数
     gameMode : 1,           // 通关模式：1=重新挑战 -> 挑战界面，2=重新挑战-> 更换阵容
-    stepWait : [2000, 24000, 180, 3000],   // 各步骤等待间隔
-}, config); // 用户配置合并
- 
-// 所有操作都是横屏
+    stepWait : [2000, 24000, 170, 3000],   // 各步骤等待间隔
+    timeout: 8000, // 超时时间：毫秒
+    max_retry_times: 10, // 最大失败重试次
+};  
+
 const WIDTH = Math.min(device.width, device.height);
 const HEIGHT = Math.max(device.width, device.height);
 const IS_ROOT = files.exists("/sbin/su") || files.exists("/system/xbin/su") || files.exists("/system/bin/su");
@@ -75,8 +72,6 @@ function start(options) {
         sleep(500);
     }
 
-    this.checkModule();
-
     var Robot = require("Robot.js");
     var robot = new Robot(options.max_retry_times);
     var App = new AppGame(robot, options);
@@ -87,39 +82,12 @@ function start(options) {
         App.openApp();
     });
 
-    if (files.exists("Secure.js")) {
-        var Secure = require("Secure.js");
-        var secure = new Secure(robot, options.max_retry_times);
-        if(!secure.openLock(options.password, options.pattern_size)){
-            storages.remove(source);
-            toastLog("停止脚本");
-            engines.stopAll();
-            exit();
-        }else{
-            // 拉起到前台界面 
-+           App.openApp(); 
-        }
-    }
-
     App.launch();
     App.work();
     App.resumeState();
 
     // 退出
     exit();
-}
-
-/**
- * 检查必要模块
- */
-function checkModule() {
-    if (!files.exists("Robot.js")) {
-        throw new Error("缺少Robot.js文件，请核对第一条");
-    }
-
-    if (!files.exists("Secure.js") && context.getSystemService(context.KEYGUARD_SERVICE).inKeyguardRestrictedInputMode()) {
-        throw new Error("缺少Secure.js文件，请核对第一条");
-    }
 }
 
 /**
@@ -131,11 +99,7 @@ function checkModule() {
 function AppGame(robot, options) {
     this.robot = robot;
     options = options || {};
-    var settings = {
-        timeout: 8000, // 超时时间：毫秒
-        max_retry_times: 10, // 最大失败重试次
-    };
-    this.options = Object.assign(settings, options);
+    this.options = Object.assign(options);
     this.package = "com.tencent.tmgp.sgame";
     this.activity = "com.tencent.tmgp.sgame.SGameActivity";
     this.state = {};
@@ -178,6 +142,7 @@ function AppGame(robot, options) {
         var times = 0;
         do {
             if (this.doLaunch()) {
+                sleep(50000);
                 return;
             } else {
                 times++;
@@ -193,25 +158,24 @@ function AppGame(robot, options) {
 
     this.doLaunch = function () {
         sleep(4000);
-        log(currentActivity());
         return (currentActivity() === this.activity);
     };
 
     this.work = function() {
         sleep(5000);
         for (let i = 0; i < this.options.repeatTime; i++){
-            log("第%d次开始...", i);
+            toastLog("第%d次通过即将开始", i);
             if (this.options.gameMode == 1){
-                log('#0 start the game');
+                toastLog('#0 start the game');
                 this.robot.click(1600, 970);
                 sleep(this.options.stepWait[0]);
             }
                 
-            log('#1 ready, go!!!');
+            toastLog('#1 ready, go!!!');
             this.robot.click(1450, 910);
             sleep(this.options.stepWait[1]);
 
-            log('#2 auto power on!');
+            toastLog('#2 auto power on!');
             //this.robot.click(1780, 40);
 
             for (let l = 0; l < this.options.stepWait[2]; l++){
@@ -219,7 +183,7 @@ function AppGame(robot, options) {
                 sleep(1);
             }
 
-            log('#3 do it again...\n');
+            toastLog('#3 do it again...');
             this.robot.click(1600, 980);
             sleep(this.options.stepWait[3]);
         }
