@@ -8,7 +8,7 @@ var regexp = "(" + content_id + "|" + timestamp_id + ")";
 var record_mixed = {};
 var record_other = {};
 var record_i = {};
-var current_date = "default";
+var current_date = "unknow";
 
 function initRecord(record, key) {
     if (!record.hasOwnProperty(key)) {
@@ -17,7 +17,7 @@ function initRecord(record, key) {
 }
 
 var list_view = className("AbsListView").findOne();
-var unique_map = [];
+var unique_map = {};
 do {
     idMatches(regexp).find().forEach(function (o) {
         var text = o.text(); // 内容
@@ -25,9 +25,9 @@ do {
 
         // 使用横坐标(left,right)+内容去重
         var rect = o.bounds();
-        var unique_key = rect.centerX() + text;
-        if (-1 === unique_map.indexOf(unique_key)) {
-            unique_map.push(unique_key);
+        var unique_key = current_date + rect.centerX() + text;
+        if (!unique_map.hasOwnProperty(unique_key)) {
+            unique_map[unique_key] = "";
         } else {
             return;
         }
@@ -53,13 +53,19 @@ do {
             }
         } else if (text_id === timestamp_id) {
             var arr = text.split(" ");
-            if (arr.length > 1) {
-                var date = arr[0];
-                var time = arr[1];    
-            } else {
-                var now = new Date();
-                var date = (now.getMonth() + 1) + '-' + now.getDate();
-                var time = arr[0];
+            var now = new Date();
+            // 拼成 yyyy.mm.dd样式
+            switch (arr.length) {
+                case 1: // 今天
+                    var date = now.getFullYear() + "." + (now.getMonth() + 1) + "." + now.getDate();
+                    var time = arr[0];
+                    break;
+                case 2: // 年份
+                    var partitions = arr[0].split("-");
+                    (partitions.length === 2) && partitions.unshift(now.getFullYear());
+                    var date = partitions.join(".");
+                    var time = arr[1];
+                    break;
             }
             
             if (date !== current_date) {
@@ -89,7 +95,7 @@ function saveToFile(record, prefix) {
     }
 }
 
-//saveToFile(record_mixed, "record/mixed_");
-//saveToFile(record_i, "record/i_");
-saveToFile(record_other, "record/firend_");
+//saveToFile(record_mixed, "record/mixed/");
+//saveToFile(record_i, "record/i/");
+saveToFile(record_other, "record/friend/");
 
