@@ -8,13 +8,20 @@ var regexp = "(" + content_id + "|" + timestamp_id + ")";
 var record_mixed = {};
 var record_other = {};
 var record_i = {};
-var current_date = "unknow";
+var now = new Date();
+var today = now.getFullYear() + "." + (now.getMonth() + 1) + "." + now.getDate();
+var current_date = today;
+var current_time = "unknow";
 
 function initRecord(record, key) {
     if (!record.hasOwnProperty(key)) {
         record[key] = [];
     }
 }
+
+initRecord(record_mixed, current_date);
+initRecord(record_other, current_date);
+initRecord(record_i, current_date);
 
 var list_view = className("AbsListView").findOne();
 var unique_map = {};
@@ -25,7 +32,9 @@ do {
 
         // 使用横坐标(left,right)+内容去重
         var rect = o.bounds();
-        var unique_key = current_date + rect.centerX() + text;
+        var unique_key = (text_id === timestamp_id) 
+            ? current_date + text.split(" ").pop() + rect.centerX() 
+            : current_date + current_time + rect.centerX() + text;
         if (!unique_map.hasOwnProperty(unique_key)) {
             unique_map[unique_key] = "";
         } else {
@@ -53,11 +62,11 @@ do {
             }
         } else if (text_id === timestamp_id) {
             var arr = text.split(" ");
-            var now = new Date();
+            
             // 拼成 yyyy.mm.dd样式
             switch (arr.length) {
                 case 1: // 今天
-                    var date = now.getFullYear() + "." + (now.getMonth() + 1) + "." + now.getDate();
+                    var date = today;
                     var time = arr[0];
                     break;
                 case 2: // 年份
@@ -73,6 +82,9 @@ do {
                 initRecord(record_mixed, current_date);
                 initRecord(record_other, current_date);
                 initRecord(record_i, current_date);
+            }
+            if (time !== current_time) {
+                current_time = time;
             }
     
             record_mixed[current_date].push(time);
