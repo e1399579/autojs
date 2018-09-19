@@ -205,6 +205,9 @@ function AntForest(robot, options) {
         var timeout = this.options.timeout;
         threads.start(function () {
             var cancelBtn;
+            if (cancelBtn = id("com.alipay.mobile.accountauthbiz:id/update_cancel_tv").findOne(timeout)) {
+                cancelBtn.click();
+            }
             if (cancelBtn = id("com.alipay.android.phone.wallet.sharetoken:id/btn1").findOne(timeout)) {
                 cancelBtn.click();
             }
