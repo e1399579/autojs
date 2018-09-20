@@ -3,6 +3,7 @@
 * 根据 酷安@群主让我注册 脚本修改而来，原下载地址：https://github.com/start201711/autojs?files=1
 * 感谢原作者提供的核心算法，感谢Auto.js作者提供的API平台
 * 欢迎使用和提交bug反馈
+* QQ群：754205154
 
 ## 设备要求：
 1. 免ROOT权限(安卓7.0以上，与Tasker结合使用) 或 ROOT权限(安卓5.0以上，与Edge或Tasker结合使用)
