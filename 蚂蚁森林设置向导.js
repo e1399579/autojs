@@ -97,7 +97,7 @@ function showSettings(options) {
         file.write(text);
         file.close();
         toast("设置成功！文件为" + path);
-        activity.finish();
+        ui.finish();
     });
 
     ui.reset.click(initForm);

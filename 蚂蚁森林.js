@@ -87,7 +87,7 @@ function TaskManager() {
         engines.myEngine().setTag(this.time_tag, (new Date()).getTime());
 
         var task_list = this.getTaskList();
-        this.task_no = task_list.indexOf(engines.myEngine());
+        this.task_no = this.findIndex(engines.myEngine(), task_list);
         log(Object.keys(task_list));
     };
 
@@ -95,6 +95,15 @@ function TaskManager() {
         return engines.all().sort(function(e1, e2) {
             return e1.getTag(this.time_tag) - e2.getTag(this.time_tag);
         }.bind(this));
+    };
+    
+    this.findIndex = function (engine, list) {
+        var engine_id = engine.id;
+        var id_list = list.map(function (o) {
+            return o.id;
+        });
+        
+        return id_list.indexOf(engine_id);
     };
 
     this.listen = function() {
@@ -113,7 +122,7 @@ function TaskManager() {
         while (1) {
             device.wakeUpIfNeeded();
             
-            var task_no = this.getTaskList().indexOf(engines.myEngine());
+            var task_no = this.findIndex(engines.myEngine(), this.getTaskList());
             if (task_no > 0) {
                 log("任务" + this.task_no + "排队中，前面有" + task_no + "个任务");
                 sleep(this.wait_time);
