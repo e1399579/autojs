@@ -77,7 +77,7 @@ function Secure(robot, max_retry_times) {
 
     this.openLayer = function () {
         var x = WIDTH / 2;
-        var y = HEIGHT - 200;
+        var y = HEIGHT - 300;
         this.robot.swipe(x, y, x, HEIGHT / 2, 500);
         sleep(1500); // 等待动画
     };
