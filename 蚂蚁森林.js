@@ -222,24 +222,11 @@ function AntForest(robot, options) {
             }
         });
 
-        var home = id("com.alipay.android.phone.openplatform:id/tab_description").text("首页").findOne(timeout);
-        if (!home) {
-            toastLog("进入支付宝首页失败");
-            return false;
-        }
-        home.parent().click();
-
-        var success = false;
-        var btn = id("com.alipay.android.phone.openplatform:id/app_text").text("蚂蚁森林").findOne(timeout);
-        if (!btn) {
-            toastLog("查找蚂蚁森林按钮失败");
-            return false;
-        }
-        log("点击按钮");
-        if (!(btn.parent() && btn.parent().click())) {
-            toastLog("点击蚂蚁森林失败");
-            return false;
-        }
+        log("打开蚂蚁森林");
+        app.startActivity({
+            action: "VIEW",
+            data: "alipays://platformapi/startapp?appId=60000002"
+        });
 
         // 等待加载
         if (this.waitForLoading("合种")) {

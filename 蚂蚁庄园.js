@@ -22,10 +22,14 @@ function start() {
         exit();
     }
 
-    toastLog("请打开星星球界面");
-    launchApp("支付宝");
+    toast("打开星星球界面");
+    app.startActivity({
+        action: "VIEW",
+        data: "alipays://platformapi/startapp?appId=66666782"
+    });
     waitForActivity("com.alipay.mobile.nebulacore.ui.H5Activity");
-    //sleep(5000);
+    toast("进入星星球成功");
+    sleep(5000);
 
     var antManor = new AntManor();
 
