@@ -47,7 +47,8 @@
     Mime类型(MimeType)：`text/javascript`  
     数据(Data)：`file:///storage/emulated/0/脚本/蚂蚁森林.js`  
     包名(PackageName)：`org.autojs.autojs`  
-    类名(ClassName)：`org.autojs.autojs.external.open.RunIntentActivity`
+    类名(ClassName)：`org.autojs.autojs.external.open.RunIntentActivity`  
+    目标(Target)：`Activity`
 4. 返回到任务界面，点击右上角应用(√)按钮生效。测试：长按【蚂蚁森林】任务，点击运行按钮，如果正常，将会开始收能量，测试成功
 5. 在配置文件栏，新增定时任务。依次点击 添加(+)>时间，来到时间修改界面
 6. 选择时间段，结束与开始时间相同
