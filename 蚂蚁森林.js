@@ -159,6 +159,8 @@ function AntForest(robot, options) {
     this.capture = null;
     this.bounds = [0, 0, WIDTH, 1100];
     this.icon_num = 1;
+    this.start_time = (new Date()).getTime();
+    this.detected = 0;
     
     toastLog("即将收取能量，按音量上键停止");
 
@@ -229,7 +231,7 @@ function AntForest(robot, options) {
         });
 
         // 等待加载
-        if (this.waitForLoading("合种")) {
+        if (this.waitForLoading("攻略")) {
             log("进入蚂蚁森林成功");
         } else {
             toastLog("进入蚂蚁森林失败");
@@ -312,7 +314,7 @@ function AntForest(robot, options) {
         
         var bottom = 0;
         var total_list = this.takeOthers(icon_list, 500, function () {
-            var rect = desc("合种").findOnce().bounds();
+            var rect = desc("攻略").findOnce().bounds();
 
             if (rect.bottom === bottom) {
                 return true;
@@ -356,6 +358,7 @@ function AntForest(robot, options) {
                         this.filterMinuteList(minuteList);
                         
                         if (!this.executeNextTask()) {
+                            log("检测自己的能量尚未开始，不执行反复检测");
                             break;
                         }
 
@@ -381,7 +384,7 @@ function AntForest(robot, options) {
 
                     this.back();
                     sleep(2000);
-                    this.waitForLoading("合种");
+                    this.waitForLoading("攻略");
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
@@ -417,6 +420,8 @@ function AntForest(robot, options) {
                 var today = date.toDateString();
                 var next_time = today + " " + timeList[0];
                 this.notifyTasker(next_time);
+            } else {
+                log("检测自己的能量尚未开始，不发送Tasker任务");
             }
         }
     };
@@ -464,12 +469,12 @@ function AntForest(robot, options) {
     };
 
     this.executeNextTask = function () {
+        if (this.detected) return true;
         var date = new Date();
-        var timestamp = date.getTime();
         var today = date.toDateString();
         var max_time = today + " " + this.options.max_time;
         var max_timestamp = Date.parse(max_time);
-        return (timestamp > max_timestamp);
+        return (this.start_time > max_timestamp);
     };
 
     this.notifyTasker = function (time) {
@@ -549,6 +554,7 @@ function AntForest(robot, options) {
             }
             this.autoBack();
             
+            this.detected = 1;
             toastLog("检测结束");
         }
     };
