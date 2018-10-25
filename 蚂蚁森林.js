@@ -523,7 +523,7 @@ function AntForest(robot, options) {
         var list = [];
         className("android.widget.Button").filter(function (o) {
             var desc = o.contentDescription;
-            return (null !== desc.match(/才能收取$/));
+            return (null !== desc.match(/^收集能量|^\s?$/));
         }).find().forEach(function (o) {
             var rect = o.bounds();
             list.push([rect.centerX(), rect.centerY()]);
