@@ -326,12 +326,12 @@ function AntForest(robot, options) {
 
         // 统计下次时间
         var minuteList = [];
-        var keyword = "查看更多好友";
+        var keyword = "View more friends";
         if (desc(keyword).exists()) {
             log(keyword);
             if (this.robot.clickCenter(desc(keyword).findOne(timeout))) {
                 // 等待更多列表刷新
-                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("好友排行榜").findOne(timeout)) {
+                if (id("com.alipay.mobile.nebula:id/h5_tv_title").text("Green heroes").findOne(timeout)) {
                     sleep(1000);
                     log("进入好友排行榜成功");
                     // 跳过第一屏
