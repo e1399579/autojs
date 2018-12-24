@@ -231,7 +231,7 @@ function AntForest(robot, options) {
         });
 
         // 等待加载
-        if (this.waitForLoading("攻略")) {
+        if (this.waitForLoading("种树")) {
             log("进入蚂蚁森林成功");
         } else {
             toastLog("进入蚂蚁森林失败");
@@ -314,7 +314,7 @@ function AntForest(robot, options) {
         
         var bottom = 0;
         var total_list = this.takeOthers(icon_list, 500, function () {
-            var rect = desc("攻略").findOnce().bounds();
+            var rect = desc("种树").findOnce().bounds();
 
             if (rect.bottom === bottom) {
                 return true;
@@ -384,7 +384,7 @@ function AntForest(robot, options) {
 
                     this.back();
                     sleep(2000);
-                    this.waitForLoading("攻略");
+                    this.waitForLoading("TA收取你");
                 } else {
                     toastLog("进入好友排行榜失败");
                 }
