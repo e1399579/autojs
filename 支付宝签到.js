@@ -6,7 +6,7 @@ let robot = new Robot();
 let widget = new WidgetAutomator(robot);
 
 // 启动APP
-widget.launchLikeName("支付宝", 3000);
+widget.launchLikeName("支付宝", 5000);
 
 // 关闭更新弹窗
 if (id("update_cancel_tv").exists()) {

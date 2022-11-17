@@ -6,7 +6,7 @@ let robot = new Robot();
 let widget = new WidgetAutomator(robot);
 
 // 启动APP
-widget.launchLikeName("京东", 3000);
+widget.launchLikeName("京东", 5000);
 
 // 切换到我的
 widget.clickCenterText("我的");
