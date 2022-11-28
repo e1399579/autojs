@@ -16,7 +16,7 @@ if (id("update_cancel_tv").exists()) {
 
 // 切换到我的
 widget.clickCenterText("我的");
-sleep(1000);
+sleep(2000);
 
 // 进入支付宝会员
 widget.clickCenterClass("android.view.ViewGroup");

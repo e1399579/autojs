@@ -9,15 +9,15 @@ let widget = new WidgetAutomator(robot);
 widget.launchLikeName("京东", 5000);
 
 // 切换到我的
-widget.clickCenterText("我的");
-sleep(1000);
+widget.clickCenterDesc("我的");
+sleep(2000);
 
 // 进入签到
 widget.clickCenterText("签到领豆");
 sleep(5000);
 
 // 点击签到
-if (textContains("连签").exists()) {
+if (textContains("已连签").exists()) {
     toastLog("已签");
 } else {
     widget.clickCenterText("签到领京豆");
