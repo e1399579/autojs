@@ -4,6 +4,7 @@
 ## 设备要求
 1. 原生/类原生系统，Android 9.0+（需要开启无障碍服务）
 2. 安装 [AutoX.js](https://github.com/kkevsekk1/AutoX/releases)
+3. 安装Tasker 5.0+（可选）
 
 ## 目录结构
 ```
@@ -32,3 +33,6 @@
 ### 京东签到
 * 用途：京东每日签到领京豆
 * 要求：主页有京东图标
+
+### Tasker定时任务
+* 直接导入Tasker.xml，然后根据需求修改时间、脚本路径等
