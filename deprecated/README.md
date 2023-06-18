@@ -1,4 +1,5 @@
 ## 简介：
+* <font color="red">本目录脚本已废弃，不一定可用</font>
 * 蚂蚁森林自动收取脚本
 * 根据 酷安@群主让我注册 脚本修改而来，原下载地址：https://github.com/start201711/autojs?files=1
 * 感谢原作者提供的核心算法，感谢Auto.js作者提供的API平台
