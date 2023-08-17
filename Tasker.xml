@@ -14,7 +14,7 @@
 	</Profile>
 	<Profile sr="prof5" ve="2">
 		<cdate>1668679485838</cdate>
-		<edate>1687070791089</edate>
+		<edate>1687071013886</edate>
 		<flags>8</flags>
 		<id>5</id>
 		<mid0>4</mid0>
@@ -37,10 +37,10 @@
 	</Project>
 	<Task sr="task2">
 		<cdate>1668622877039</cdate>
-		<edate>1668680364587</edate>
+		<edate>1692234633655</edate>
 		<id>2</id>
 		<nme>支付宝签到</nme>
-		<pri>6</pri>
+		<pri>100</pri>
 		<Action sr="act0" ve="7">
 			<code>877</code>
 			<Str sr="arg0" ve="3"/>
@@ -50,17 +50,17 @@
 			<Str sr="arg4" ve="3"/>
 			<Str sr="arg5" ve="3"/>
 			<Str sr="arg6" ve="3"/>
-			<Str sr="arg7" ve="3">org.autojs.autoxjs.v6</Str>
+			<Str sr="arg7" ve="3">org.autojs.autojs6</Str>
 			<Str sr="arg8" ve="3">org.autojs.autojs.external.open.RunIntentActivity</Str>
 			<Int sr="arg9" val="1"/>
 		</Action>
 	</Task>
 	<Task sr="task4">
 		<cdate>1668622877039</cdate>
-		<edate>1687070791089</edate>
+		<edate>1692234646284</edate>
 		<id>4</id>
 		<nme>京东签到</nme>
-		<pri>6</pri>
+		<pri>100</pri>
 		<Action sr="act0" ve="7">
 			<code>877</code>
 			<Str sr="arg0" ve="3"/>
@@ -70,7 +70,7 @@
 			<Str sr="arg4" ve="3"/>
 			<Str sr="arg5" ve="3"/>
 			<Str sr="arg6" ve="3"/>
-			<Str sr="arg7" ve="3">org.autojs.autoxjs.v6</Str>
+			<Str sr="arg7" ve="3">org.autojs.autojs6</Str>
 			<Str sr="arg8" ve="3">org.autojs.autojs.external.open.RunIntentActivity</Str>
 			<Int sr="arg9" val="1"/>
 		</Action>

@@ -38,19 +38,16 @@ sleep(500);
 let img = images.captureScreen();
 let img2 = images.clip(img, 0, 0, 1080, 1200);
 toastLog("OCR开始");
-let list = paddle.ocr(img2);
+let list = ocr.detect(img2);
 toastLog("OCR结束");
-img = null;
-img2 = null;
-images = null;
-paddle = null;
+img2.recycle();
 let sign = [];
 let get_all = [];
 for (let obj of list) {
-    if (obj.text.indexOf("每日签到") !== -1) {
+    if (obj.label.indexOf("每日签到") !== -1) {
         sign = [obj.bounds.left, obj.bounds.top];
     }
-    if (obj.text.indexOf("全部领取") !== -1) {
+    if (obj.label.indexOf("全部领取") !== -1) {
         get_all = [obj.bounds.left, obj.bounds.top];
     }
 }
@@ -63,6 +60,8 @@ if (sign.length > 0) {
     robot.click(sign[0], sign[1]);
     toastLog("签到成功");
     sleep(3000);
+} else {
+    toastLog("签到失败");
 }
 
 // =====================控件查找start=====================

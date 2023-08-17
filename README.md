@@ -3,8 +3,8 @@
 
 ## 设备要求
 1. 原生/类原生系统，Android 9.0+（需要开启无障碍服务）
-2. 安装 [AutoX.js](https://github.com/kkevsekk1/AutoX/releases)
-3. 安装Tasker 5.0+（可选）
+2. 安装 [AutoJs6 by SuperMonster003](https://github.com/SuperMonster003/AutoJs6/releases)
+3. 安装 Tasker 5.0+（可选）
 
 ## 目录结构
 ```
@@ -26,6 +26,7 @@
 * 用途：解锁屏幕
 * 加载到其他脚本运行。也可单独使用，一般不用管
 
+
 ### 支付宝签到
 * 用途：支付宝每日签到领积分
 * 要求：主页有支付宝图标
@@ -35,4 +36,11 @@
 * 要求：主页有京东图标
 
 ### Tasker定时任务
-* 直接导入Tasker.xml，然后根据需求修改时间、脚本路径等
+* 直接导入`Tasker.xml`，然后根据需求修改时间、脚本路径等
+
+## 相关链接
+[AutoJs6 应用文档](https://docs.autojs6.com/) by [SuperMonster003](https://github.com/SuperMonster003)
+
+[AutoJs6 VSCode插件](http://vscext-project.autojs6.com) by [SuperMonster003](https://github.com/SuperMonster003)
+
+[蚂蚁森林脚本](https://github.com/SuperMonster003/Ant-Forest) by [SuperMonster003](https://github.com/SuperMonster003)
