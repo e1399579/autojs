@@ -20,7 +20,7 @@ sleep(2000);
 
 // 进入支付宝会员
 widget.clickCenterClass("android.view.ViewGroup");
-sleep(5000);
+sleep(8000);
 
 // 请求截图并点击开始
 threads.start(function () {
@@ -40,6 +40,10 @@ let img2 = images.clip(img, 0, 0, 1080, 1200);
 toastLog("OCR开始");
 let list = paddle.ocr(img2);
 toastLog("OCR结束");
+img = null;
+img2 = null;
+images = null;
+paddle = null;
 let sign = [];
 let get_all = [];
 for (let obj of list) {

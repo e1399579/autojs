@@ -19,7 +19,7 @@ sleep(10000);
 //关闭弹窗
 if (text("我知道了").exists()) {
     toastLog("关闭弹窗");
-    widget.clickCenterText("我知道了");
+    text("我知道了").click();
     sleep(500);
 }
 
@@ -27,7 +27,7 @@ if (text("我知道了").exists()) {
 if (textContains("已连签").exists()) {
     toastLog("已签");
 } else {
-    widget.clickCenterText("签到领京豆");
+    widget.clickCenterTextContains("签到领京豆");
     toastLog("签到成功");
     sleep(1500);
 }
