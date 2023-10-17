@@ -2,8 +2,10 @@ auto.waitFor();
 require("./解锁.js");
 let Robot = require("./lib/Robot.js");
 let WidgetAutomator = require("./lib/WidgetAutomator.js");
+let OcrTool = require("./lib/OcrTool.js");
 let robot = new Robot();
 let widget = new WidgetAutomator(robot);
+let ocrTool = new OcrTool();
 
 // 启动APP
 widget.launchLikeName("京东", 8000);
@@ -24,12 +26,17 @@ if (text("我知道了").exists()) {
 }
 
 // 点击签到
-if (textContains("已连签").exists()) {
+ocrTool.captureOrClip([0, 0, 1080, 520]);
+let keywords = ["签到", "连签"];
+let result = ocrTool.findText(keywords);
+if (result[1].length > 0) {
     toastLog("已签");
-} else {
-    widget.clickCenterTextContains("签到领京豆");
+} else if (result[0].length > 0) {
+    robot.click(result[0][0], result[0][1]);
     toastLog("签到成功");
     sleep(1500);
+} else {
+    toastLog("签到失败");
 }
 
 // 关闭应用
