@@ -15,7 +15,7 @@
 	<Profile sr="prof5" ve="2">
 		<cdate>1668679485838</cdate>
 		<edate>1687071013886</edate>
-		<flags>8</flags>
+		<flags>10</flags>
 		<id>5</id>
 		<mid0>4</mid0>
 		<Time sr="con0">
@@ -25,12 +25,25 @@
 			<tm>7</tm>
 		</Time>
 	</Profile>
+	<Profile sr="prof7" ve="2">
+		<cdate>1698592806753</cdate>
+		<edate>1698592806753</edate>
+		<flags>8</flags>
+		<id>7</id>
+		<mid0>6</mid0>
+		<Time sr="con0">
+			<fh>0</fh>
+			<fm>0</fm>
+			<th>0</th>
+			<tm>0</tm>
+		</Time>
+	</Profile>
 	<Project sr="proj0" ve="2">
 		<cdate>1668622810523</cdate>
-		<mdate>1668679485838</mdate>
+		<mdate>1698592806753</mdate>
 		<name>基底</name>
-		<pids>3,5</pids>
-		<tids>2,4</tids>
+		<pids>3,5,7</pids>
+		<tids>2,4,6</tids>
 		<Img sr="icon" ve="2">
 			<nme>mw_action_home</nme>
 		</Img>
@@ -40,7 +53,7 @@
 		<edate>1692234633655</edate>
 		<id>2</id>
 		<nme>支付宝签到</nme>
-		<pri>100</pri>
+		<pri>6</pri>
 		<Action sr="act0" ve="7">
 			<code>877</code>
 			<Str sr="arg0" ve="3"/>
@@ -67,6 +80,26 @@
 			<Int sr="arg1" val="1"/>
 			<Str sr="arg2" ve="3">text/javascript</Str>
 			<Str sr="arg3" ve="3">file:///storage/emulated/0/脚本/京东签到.js</Str>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3">org.autojs.autojs6</Str>
+			<Str sr="arg8" ve="3">org.autojs.autojs.external.open.RunIntentActivity</Str>
+			<Int sr="arg9" val="1"/>
+		</Action>
+	</Task>
+	<Task sr="task6">
+		<cdate>1668622877039</cdate>
+		<edate>1698592772256</edate>
+		<id>6</id>
+		<nme>PICO签到</nme>
+		<pri>6</pri>
+		<Action sr="act0" ve="7">
+			<code>877</code>
+			<Str sr="arg0" ve="3"/>
+			<Int sr="arg1" val="1"/>
+			<Str sr="arg2" ve="3">text/javascript</Str>
+			<Str sr="arg3" ve="3">file:///storage/emulated/0/脚本/PICO签到.js</Str>
 			<Str sr="arg4" ve="3"/>
 			<Str sr="arg5" ve="3"/>
 			<Str sr="arg6" ve="3"/>

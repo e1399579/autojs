@@ -7,6 +7,7 @@ let robot = new Robot();
 let widget = new WidgetAutomator(robot);
 let ocrTool = new OcrTool();
 
+toastLog("京东签到");
 // 启动APP
 widget.launchLikeName("京东", 8000);
 
@@ -26,6 +27,7 @@ if (text("我知道了").exists()) {
 }
 
 // 点击签到
+ocrTool.prepare();
 ocrTool.captureOrClip([0, 0, 1080, 520]);
 let keywords = ["签到", "连签"];
 let result = ocrTool.findText(keywords);

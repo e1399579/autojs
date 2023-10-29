@@ -7,6 +7,7 @@ let robot = new Robot();
 let widget = new WidgetAutomator(robot);
 let ocrTool = new OcrTool();
 
+toastLog("支付宝签到");
 // 启动APP
 widget.launchLikeName("支付宝", 5000);
 
@@ -25,6 +26,7 @@ widget.clickCenterClass("android.view.ViewGroup");
 sleep(8000);
 
 // 使用OCR识别文字
+ocrTool.prepare();
 ocrTool.captureOrClip([0, 0, 1080, 1200]);
 let keywords = ["每日签到", "全部领取"];
 let result = ocrTool.findText(keywords);
