@@ -28,17 +28,21 @@ if (text("我知道了").exists()) {
 
 // 点击签到
 ocrTool.prepare();
-ocrTool.captureOrClip([0, 0, 1080, 520]);
-let keywords = ["签到", "连签"];
-let result = ocrTool.findText(keywords);
-if (result[1].length > 0) {
-    toastLog("已签");
-} else if (result[0].length > 0) {
-    robot.click(result[0][0], result[0][1]);
-    toastLog("签到成功");
-    sleep(1500);
-} else {
-    toastLog("签到失败");
+for (let i = 0;i < 3;i++) {
+    ocrTool.captureOrClip([0, 0, 1080, 520]);
+    let keywords = ["签到", "连签"];
+    let result = ocrTool.findText(keywords);
+    if (result[1].length > 0) {
+        toastLog("已签");
+        break;
+    } else if (result[0].length > 0) {
+        robot.click(result[0][0], result[0][1]);
+        toastLog("签到成功");
+        sleep(1500);
+        break;
+    } else {
+        toastLog("失败，重试");
+    }
 }
 
 // 关闭应用
