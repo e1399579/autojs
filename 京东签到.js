@@ -30,8 +30,14 @@ if (text("我知道了").exists()) {
 ocrTool.prepare();
 for (let i = 0;i < 3;i++) {
     ocrTool.captureOrClip([0, 0, 1080, 520]);
-    let keywords = ["签到", "连签"];
+    let keywords = ["签到", "连签", "登录"];
     let result = ocrTool.findText(keywords);
+    if (result[2].length > 0) {
+        robot.click(result[2][0], result[2][1]);
+        toastLog("点击登录");
+        sleep(1000);
+        continue;
+    }
     if (result[1].length > 0) {
         toastLog("已签");
         break;

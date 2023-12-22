@@ -7,7 +7,7 @@ let widget = new WidgetAutomator(robot);
 
 toastLog("PICO签到");
 // 启动APP
-widget.launchLikeName("PICO VR", 8000);
+widget.launchLikeName("PICO", 8000);
 
 // 进入每日签到
 widget.clickCenterText("每日签到");
