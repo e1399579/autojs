@@ -44,3 +44,5 @@
 [AutoJs6 VSCode插件](http://vscext-project.autojs6.com) by [SuperMonster003](https://github.com/SuperMonster003)
 
 [蚂蚁森林脚本](https://github.com/SuperMonster003/Ant-Forest) by [SuperMonster003](https://github.com/SuperMonster003)
+
+[每日签到脚本](https://github.com/Sitoi/dailycheckin) by [Sitoi](https://github.com/Sitoi/)
