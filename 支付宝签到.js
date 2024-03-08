@@ -2,10 +2,10 @@ auto.waitFor();
 require("./解锁.js");
 let Robot = require("./lib/Robot.js");
 let WidgetAutomator = require("./lib/WidgetAutomator.js");
-let OcrTool = require("./lib/OcrTool.js");
+//let OcrTool = require("./lib/OcrTool.js");
 let robot = new Robot();
 let widget = new WidgetAutomator(robot);
-let ocrTool = new OcrTool();
+//let ocrTool = new OcrTool();
 
 toastLog("支付宝签到");
 // 启动APP
@@ -25,10 +25,10 @@ sleep(2000);
 widget.clickCenterClass("android.view.ViewGroup");
 sleep(8000);
 
-// 使用OCR识别文字
-ocrTool.prepare();
-ocrTool.captureOrClip([0, 0, 1080, 1200]);
 let keywords = ["每日签到", "全部领取"];
+// 使用OCR识别文字
+/*ocrTool.prepare();
+ocrTool.captureOrClip([0, 0, 1080, 1200]);
 let result = ocrTool.findText(keywords);
 if (result[1].length > 0) {
     robot.click(result[1][0], result[1][1]);
@@ -41,6 +41,24 @@ if (result[0].length > 0) {
     sleep(3000);
 } else {
     toastLog("签到失败");
+    log(selector().visibleToUser(true).find().toList());
+
+}
+*/
+// 使用控件点击
+if (text(keywords[1]).exists()) {
+    widget.clickCenterText(keywords[1]);
+    toastLog("全部领取");
+    sleep(1000);
+}
+if (text(keywords[0]).exists()) {
+    widget.clickCenterText(keywords[0]);
+    toastLog("签到成功");
+    sleep(3000);
+} else {
+    toastLog("签到失败");
+    log(selector().visibleToUser(true).find().toList());
+    exit();
 }
 
 // 关闭应用
