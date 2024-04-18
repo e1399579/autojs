@@ -30,7 +30,7 @@ ocrTool.prepare();
 for (let i = 0;i < 3;i++) {
     flag = false;
     ocrTool.captureOrClip([0, 0, 1080, 520]);
-    let keywords = ["去登录", "明天", "连签", "签到"];
+    let keywords = ["去登录", "明天", "连签", "点击签到"];
     let result = ocrTool.findText(keywords);
     if (result[0].length > 0) {
         robot.click(result[0][0], result[0][1]);
