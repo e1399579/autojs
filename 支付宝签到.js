@@ -1,4 +1,3 @@
-auto.waitFor();
 require("./解锁.js");
 let Robot = require("./lib/Robot.js");
 let WidgetAutomator = require("./lib/WidgetAutomator.js");

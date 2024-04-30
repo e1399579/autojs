@@ -1,4 +1,3 @@
-auto.waitFor();
 require("./解锁.js");
 let Robot = require("./lib/Robot.js");
 let WidgetAutomator = require("./lib/WidgetAutomator.js");
@@ -30,7 +29,7 @@ ocrTool.prepare();
 for (let i = 0;i < 3;i++) {
     flag = false;
     ocrTool.captureOrClip([0, 0, 1080, 520]);
-    let keywords = ["去登录", "明天", "连签", "点击签到"];
+    let keywords = ["去登录", "明天", "赚更多京豆", "签到领豆"];
     let result = ocrTool.findText(keywords);
     if (result[0].length > 0) {
         robot.click(result[0][0], result[0][1]);
