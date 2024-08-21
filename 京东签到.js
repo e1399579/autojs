@@ -25,12 +25,12 @@ sleep(10000);
 
 // 点击签到
 let flag = false;
-ocrTool.prepare();
+ocrTool.prepare(false);
 for (let i = 0;i < 3;i++) {
     flag = false;
-    ocrTool.captureOrClip([0, 0, 1080, 520]);
+    let tpl = ocrTool.captureAndClip([0, 0, 1080, 900]);
     let keywords = ["去登录", "明天", "赚更多京豆", "签到领豆"];
-    let result = ocrTool.findText(keywords);
+    let result = ocrTool.findText(tpl, keywords, true);
     if (result[0].length > 0) {
         robot.click(result[0][0], result[0][1]);
         toastLog("点击登录");
